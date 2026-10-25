@@ -1,0 +1,13 @@
+# Model output order. Must match model/labels.json (enforced by tests/test_units.py).
+LABELS: tuple[str, ...] = (
+    "bacterial_spot",
+    "early_blight",
+    "healthy",
+    "late_blight",
+    "leaf_mold",
+    "mosaic_virus",
+    "septoria_leaf_spot",
+    "spider_mites",
+    "target_spot",
+    "yellow_leaf_curl_virus",
+)
