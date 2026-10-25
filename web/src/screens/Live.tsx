@@ -5,6 +5,8 @@ import { useNow, type RoverModel } from '../hooks/useRover'
 import type { RegionModel } from '../hooks/useRegion'
 import type { Forecast } from '../lib/weather'
 import { RegionPrompt, SprayWindow, WeatherCard } from '../components/weather'
+import { WhereToBuy } from '../components/shops'
+import type { Region } from '../lib/weather'
 import { REMEDY, REMEDY_FOOTER } from '../lib/labels'
 import { captureRequestStatus, isOnline, relativeTime, verdictView, type RequestStatus } from '../lib/status'
 import {
@@ -93,7 +95,7 @@ export function Live({
 
       <div className="space-y-5">
         {region.region === null && <RegionPrompt onPick={region.save} error={region.error} />}
-        <Diagnosis capture={latest} forecast={region.forecast} />
+        <Diagnosis capture={latest} forecast={region.forecast} region={region.region} source={source} />
         {region.region && <WeatherCard region={region.region} forecast={region.forecast} error={region.error} />}
         <PatrolPanel model={model} />
         <Recent captures={captures.slice(1, 9)} source={source} />
@@ -140,7 +142,17 @@ function CaptureButton({
   )
 }
 
-function Diagnosis({ capture, forecast }: { capture: Capture | undefined; forecast: Forecast | null }) {
+function Diagnosis({
+  capture,
+  forecast,
+  region,
+  source,
+}: {
+  capture: Capture | undefined
+  forecast: Forecast | null
+  region: Region | null | undefined
+  source: DataSource
+}) {
   if (!capture) {
     return (
       <Panel>
@@ -181,6 +193,7 @@ function Diagnosis({ capture, forecast }: { capture: Capture | undefined; foreca
               <div className="mt-3">
                 <SprayWindow forecast={forecast} />
               </div>
+              <WhereToBuy key={capture.id} label={capture.label} region={region} source={source} />
               <p className="mt-2 text-[13px] italic text-bark">{REMEDY_FOOTER}</p>
             </>
           )}

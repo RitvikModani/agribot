@@ -9,18 +9,30 @@ import logging
 import os
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Callable
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
 from .auth import DeviceAuth
 from .config import Settings
 from .inference import Classifier, OnnxClassifier
 from .preprocess import InvalidImage, decode, leaf_fraction, to_tensor
 from .ratelimit import RateLimiter
+from .shops import INGREDIENTS, GeminiShops, ShopFinder, ShopsError
 from .store import CaptureRow, Device, MemoryStore, Store, StoreError
+from .user_auth import SupabaseUserAuth, UserAuth
+
+SHOP_CACHE_TTL = timedelta(hours=24)
+
+
+class ShopRequest(BaseModel):
+    label: str
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
 
 log = logging.getLogger("agribot")
 
@@ -39,10 +51,16 @@ def capture_view(row: CaptureRow) -> dict:
 
 
 def create_app(store: Store, classifier: Classifier, settings: Settings,
-               clock: Callable[[], datetime] = utcnow) -> FastAPI:
+               clock: Callable[[], datetime] = utcnow, shops: ShopFinder | None = None,
+               user_auth: UserAuth | None = None) -> FastAPI:
     app = FastAPI(title="AgriBot API", docs_url=None, redoc_url=None, openapi_url=None)
+    # Browsers calling from the dashboard (Wake API, shops) need CORS; the camera doesn't care.
+    app.add_middleware(CORSMiddleware, allow_origins=list(settings.allowed_origins),
+                       allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"])
     auth = DeviceAuth(store, clock)
     limiter = RateLimiter()
+    shop_limiter = RateLimiter(per_second=10 / 60, burst=10, daily=500)
+    shop_cache: dict[tuple[str, float, float], tuple[datetime, str, list[dict]]] = {}
     last_touch: dict[str, datetime] = {}
 
     @app.middleware("http")
@@ -146,6 +164,36 @@ def create_app(store: Store, classifier: Classifier, settings: Settings,
             raise HTTPException(503, "store unavailable, retry with the same X-Capture-Id") from exc
         return capture_view(row)
 
+    @app.post("/v1/shops")
+    def find_shops(req: ShopRequest, authorization: str | None = Header(default=None)) -> dict:
+        token = authorization[7:].strip() if authorization and authorization.startswith("Bearer ") else ""
+        user = user_auth.user_id(token) if (user_auth and token) else None
+        if user is None:
+            raise HTTPException(401, "sign in to search for shops")
+        if req.label not in INGREDIENTS:
+            raise HTTPException(422, "label must be a disease with a treatment")
+        if shops is None:
+            raise HTTPException(503, "shop search isn't set up (GEMINI_API_KEY missing)")
+        now = clock()
+        key = (req.label, round(req.lat, 2), round(req.lon, 2))
+
+        def view(summary: str, found: list[dict], cached: bool) -> dict:
+            return {"shops": found, "summary": summary, "ingredients": INGREDIENTS[req.label],
+                    "area": f"{key[1]},{key[2]}", "cached": cached}
+
+        hit = shop_cache.get(key)
+        if hit and now - hit[0] < SHOP_CACHE_TTL:
+            return view(hit[1], hit[2], True)
+        if not shop_limiter.allow(user, now):
+            raise HTTPException(429, "too many shop searches, try again in a minute")
+        try:
+            summary, found = shops.find(req.label, req.lat, req.lon)
+        except ShopsError as exc:
+            log.warning("shop search failed: %s", exc)
+            raise HTTPException(502, "shop search failed, use the Google Maps link instead") from exc
+        shop_cache[key] = (now, summary, found)
+        return view(summary, found, False)
+
     return app
 
 
@@ -161,4 +209,7 @@ def build_app() -> FastAPI:
     else:
         from .supabase_store import SupabaseStore
         store = SupabaseStore(settings.supabase_url, settings.supabase_service_role_key)
-    return create_app(store, OnnxClassifier(settings.model_path), settings)
+    shops = GeminiShops(settings.gemini_api_key, settings.gemini_model) if settings.gemini_api_key else None
+    user_auth = (SupabaseUserAuth(settings.supabase_url, settings.supabase_service_role_key)
+                 if settings.supabase_url and settings.supabase_service_role_key else None)
+    return create_app(store, OnnxClassifier(settings.model_path), settings, shops=shops, user_auth=user_auth)

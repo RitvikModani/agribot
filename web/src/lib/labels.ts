@@ -44,6 +44,26 @@ export const REMEDY: Record<LabelKey, string> = {
 export const REMEDY_FOOTER =
   'Confirm with a local agricultural extension officer before applying any chemical treatment.'
 
+// Active ingredients behind each remedy. Mirrors api/app/shops.py INGREDIENTS.
+export const ACTIVE_INGREDIENTS: Record<LabelKey, string[]> = {
+  bacterial_spot: ['copper oxychloride', 'copper hydroxide'],
+  early_blight: ['mancozeb', 'chlorothalonil'],
+  healthy: [],
+  late_blight: ['mancozeb', 'chlorothalonil', 'copper oxychloride'],
+  leaf_mold: ['chlorothalonil', 'copper fungicide'],
+  mosaic_virus: ['neem oil', 'insecticidal soap'],
+  septoria_leaf_spot: ['chlorothalonil', 'copper oxychloride'],
+  spider_mites: ['neem oil', 'insecticidal soap'],
+  target_spot: ['chlorothalonil', 'mancozeb'],
+  yellow_leaf_curl_virus: ['yellow sticky traps', 'neem oil'],
+}
+
+/** Plain Google Maps search: always works, no key, the fallback for in-app shop search. */
+export function mapsSearchUrl(label: LabelKey, place: string): string {
+  const q = new URLSearchParams({ api: '1', query: `${ACTIVE_INGREDIENTS[label][0]} pesticide shop near ${place}` })
+  return `https://www.google.com/maps/search/?${q}`
+}
+
 export function isLabel(value: string): value is LabelKey {
   return (LABELS as readonly string[]).includes(value)
 }

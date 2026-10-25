@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { LABELS, LABEL_NAME, REMEDY } from '../src/lib/labels'
+import { ACTIVE_INGREDIENTS, LABELS, LABEL_NAME, REMEDY, mapsSearchUrl } from '../src/lib/labels'
 import { captureRequestStatus, confidenceBlocks, isOnline, relativeTime, verdictView } from '../src/lib/status'
 
 const NOW = Date.parse('2026-11-01T09:00:00Z')
@@ -59,6 +59,20 @@ describe('relativeTime', () => {
     expect(relativeTime(ago(42), NOW)).toBe('42s ago')
     expect(relativeTime(ago(150), NOW)).toBe('2m ago')
     expect(relativeTime(ago(7300), NOW)).toBe('2h ago')
+  })
+})
+
+describe('remedy shopping', () => {
+  it('names active ingredients for every disease and none for healthy', () => {
+    for (const key of LABELS) expect(ACTIVE_INGREDIENTS[key].length > 0).toBe(key !== 'healthy')
+    expect(ACTIVE_INGREDIENTS.late_blight).toContain('mancozeb')
+  })
+
+  it('builds a Google Maps search for the first ingredient near the place', () => {
+    const url = new URL(mapsSearchUrl('late_blight', 'Warangal'))
+    expect(url.origin + url.pathname).toBe('https://www.google.com/maps/search/')
+    expect(url.searchParams.get('api')).toBe('1')
+    expect(url.searchParams.get('query')).toBe('mancozeb pesticide shop near Warangal')
   })
 })
 

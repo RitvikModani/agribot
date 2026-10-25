@@ -132,6 +132,11 @@ export function createReplaySource(base: string): DataSource {
       return `${base}replay/${path}`
     },
 
+    // No backend in replay: shop search can't run, and fake shops would be made-up data.
+    async findShops() {
+      return null
+    },
+
     // Replay keeps the region in this browser only.
     async getRegion() {
       try {

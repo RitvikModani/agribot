@@ -76,4 +76,13 @@ export interface DataSource {
   subscribe(s: Subscription): () => void
   getRegion(): Promise<Region | null>
   saveRegion(r: Region): Promise<void>
+  /** Real nearby shops for a disease's remedy; null when this source can't search (Replay). */
+  findShops(label: LabelKey, region: Region): Promise<ShopResult | null>
+}
+
+export interface ShopResult {
+  shops: { name: string; url: string }[]
+  summary: string
+  ingredients: string[]
+  cached: boolean
 }

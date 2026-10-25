@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import type { Capture, DataSource, Device, DeviceState } from './types'
+import type { Capture, DataSource, Device, DeviceState, ShopResult } from './types'
 
 type Row = Record<string, unknown>
 
@@ -37,7 +37,7 @@ function fail(error: { message: string } | null): void {
   if (error) throw new Error(error.message)
 }
 
-export function createSupabaseSource(url: string, anonKey: string): DataSource {
+export function createSupabaseSource(url: string, anonKey: string, apiUrl: string): DataSource {
   const sb = createClient(url, anonKey)
   const signed = new Map<string, { url: string; expires: number }>()
 
@@ -148,6 +148,20 @@ export function createSupabaseSource(url: string, anonKey: string): DataSource {
         timezone: r.timezone,
       })
       fail(error)
+    },
+
+    async findShops(label, region) {
+      if (!apiUrl) throw new Error('VITE_API_URL is not set for this build.')
+      const { data } = await sb.auth.getSession()
+      if (!data.session) throw new Error('Sign in again to search for shops.')
+      const res = await fetch(`${apiUrl}/v1/shops`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${data.session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label, lat: region.lat, lon: region.lon }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error((body as { detail?: string }).detail ?? `Shop search returned ${res.status}`)
+      return body as ShopResult
     },
 
     subscribe({ onCapture, onDevice, onState }) {
