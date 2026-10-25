@@ -17,7 +17,7 @@ The old system's write URL is public on GitHub and two keys are sitting in Drive
 If you've connected the **Supabase plugin**, tell me and I'll do steps 2–4 for you.
 
 1. supabase.com → **New project** → name `agribot`, region **Mumbai**, generate a strong database password and keep it in your password manager.
-2. **SQL Editor** → paste all of `supabase/migrations/0001_core.sql` → **Run**. It should finish with "Success. No rows returned".
+2. **SQL Editor** → paste all of `supabase/migrations/0001_core.sql` → **Run**. It should finish with "Success. No rows returned". Then do the same with `0002_profiles.sql` (your saved region).
 3. **Authentication → Sign In / Providers → Email** → turn **off** "Allow new users to sign up".
 4. **Authentication → Users → Add user** → your email + a password → tick auto-confirm. (Add a second throwaway user too if you want to run the security check below.)
 5. **Project Settings → API** → note the **Project URL**, the **anon public** key, and the **service_role** key. The service_role key is a master key: it only ever goes into the Hugging Face secret in step 2.

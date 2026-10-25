@@ -3,6 +3,7 @@ import { Sprout } from 'lucide-react'
 import { source } from './data'
 import type { Session } from './data/types'
 import { useNow, useRover } from './hooks/useRover'
+import { useRegion } from './hooks/useRegion'
 import { isOnline, relativeTime, verdictView } from './lib/status'
 import { Nav, ReplayBanner, StatusChip, Ticker, type Tab } from './components/ui'
 import { FieldLog } from './screens/FieldLog'
@@ -42,6 +43,7 @@ function Wordmark() {
 
 function Console({ session }: { session: Session }) {
   const model = useRover(source)
+  const region = useRegion(source)
   const now = useNow(1000)
   const [tab, setTab] = useState<Tab>(tabFromHash)
 
@@ -62,7 +64,9 @@ function Console({ session }: { session: Session }) {
   const rover = model.rover
   const online = rover ? isOnline(rover.device.lastSeenAt, now) : false
   const latest = model.captures[0]
+  const weather = region.forecast?.now
   const ticker = [
+    ...(region.region && weather ? [`${region.region.placeName} ${Math.round(weather.temp)}°C · ${Math.round(weather.rh)}% humidity`] : []),
     `Rover ${online ? 'online' : 'offline'}`,
     `Seen ${relativeTime(rover?.device.lastSeenAt ?? null, now)}`,
     `Patrol ${rover?.state.patrolOn ? `on · ${rover.state.patrolIntervalS}s` : 'off'}`,
@@ -93,9 +97,9 @@ function Console({ session }: { session: Session }) {
         </p>
       )}
       <main className="mx-auto mt-5 max-w-6xl px-4">
-        {tab === 'live' && <Live model={model} source={source} onOpenRover={() => go('rover')} />}
+        {tab === 'live' && <Live model={model} source={source} region={region} onOpenRover={() => go('rover')} />}
         {tab === 'log' && <FieldLog model={model} source={source} />}
-        {tab === 'rover' && <RoverScreen model={model} source={source} session={session} />}
+        {tab === 'rover' && <RoverScreen model={model} source={source} session={session} region={region} />}
       </main>
       <div className="lg:hidden">
         <Nav tab={tab} onTab={go} docked />

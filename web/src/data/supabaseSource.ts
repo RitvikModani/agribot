@@ -128,6 +128,28 @@ export function createSupabaseSource(url: string, anonKey: string): DataSource {
       return data!.signedUrl
     },
 
+    async getRegion() {
+      const { data, error } = await sb.from('profiles').select('*').maybeSingle()
+      fail(error)
+      if (!data) return null
+      return { placeName: data.place_name, admin1: data.admin1, country: data.country, lat: data.lat, lon: data.lon, timezone: data.timezone }
+    },
+
+    async saveRegion(r) {
+      const { data: auth } = await sb.auth.getUser()
+      if (!auth.user) throw new Error('Sign in again to save your region.')
+      const { error } = await sb.from('profiles').upsert({
+        user_id: auth.user.id,
+        place_name: r.placeName,
+        admin1: r.admin1,
+        country: r.country,
+        lat: r.lat,
+        lon: r.lon,
+        timezone: r.timezone,
+      })
+      fail(error)
+    },
+
     subscribe({ onCapture, onDevice, onState }) {
       const channel = sb
         .channel('agribot-live')

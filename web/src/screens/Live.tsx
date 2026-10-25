@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { Leaf, Minus, Plus, RotateCcw, ScanLine, Sprout, Stethoscope, Tag, Timer } from 'lucide-react'
 import type { Capture, DataSource } from '../data/types'
 import { useNow, type RoverModel } from '../hooks/useRover'
+import type { RegionModel } from '../hooks/useRegion'
+import type { Forecast } from '../lib/weather'
+import { RegionPrompt, SprayWindow, WeatherCard } from '../components/weather'
 import { REMEDY, REMEDY_FOOTER } from '../lib/labels'
 import { captureRequestStatus, isOnline, relativeTime, verdictView, type RequestStatus } from '../lib/status'
 import {
@@ -20,7 +23,17 @@ import {
 
 const INTERVALS = [3, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300]
 
-export function Live({ model, source, onOpenRover }: { model: RoverModel; source: DataSource; onOpenRover: () => void }) {
+export function Live({
+  model,
+  source,
+  region,
+  onOpenRover,
+}: {
+  model: RoverModel
+  source: DataSource
+  region: RegionModel
+  onOpenRover: () => void
+}) {
   const now = useNow(1000)
   const { rover, captures } = model
   const latest = captures[0]
@@ -79,7 +92,9 @@ export function Live({ model, source, onOpenRover }: { model: RoverModel; source
       </div>
 
       <div className="space-y-5">
-        <Diagnosis capture={latest} />
+        {region.region === null && <RegionPrompt onPick={region.save} error={region.error} />}
+        <Diagnosis capture={latest} forecast={region.forecast} />
+        {region.region && <WeatherCard region={region.region} forecast={region.forecast} error={region.error} />}
         <PatrolPanel model={model} />
         <Recent captures={captures.slice(1, 9)} source={source} />
       </div>
@@ -125,7 +140,7 @@ function CaptureButton({
   )
 }
 
-function Diagnosis({ capture }: { capture: Capture | undefined }) {
+function Diagnosis({ capture, forecast }: { capture: Capture | undefined; forecast: Forecast | null }) {
   if (!capture) {
     return (
       <Panel>
@@ -161,7 +176,14 @@ function Diagnosis({ capture }: { capture: Capture | undefined }) {
         <div className={`rounded-xl p-4 ${view.tone === 'healthy' ? 'bg-sprout/20' : 'bg-terracotta/10'}`}>
           <Label className={view.tone === 'healthy' ? 'text-moss' : 'text-terracotta'}>{view.tone === 'healthy' ? 'Care' : 'Treatment'}</Label>
           <p className="mt-1.5 leading-relaxed">{REMEDY[capture.label]}</p>
-          {view.tone === 'disease' && <p className="mt-2 text-[13px] italic text-bark">{REMEDY_FOOTER}</p>}
+          {view.tone === 'disease' && (
+            <>
+              <div className="mt-3">
+                <SprayWindow forecast={forecast} />
+              </div>
+              <p className="mt-2 text-[13px] italic text-bark">{REMEDY_FOOTER}</p>
+            </>
+          )}
         </div>
       )}
     </Panel>

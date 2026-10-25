@@ -132,6 +132,23 @@ export function createReplaySource(base: string): DataSource {
       return `${base}replay/${path}`
     },
 
+    // Replay keeps the region in this browser only.
+    async getRegion() {
+      try {
+        const raw = localStorage.getItem('agribot.region')
+        return raw ? JSON.parse(raw) : null
+      } catch {
+        return null
+      }
+    },
+    async saveRegion(r) {
+      try {
+        localStorage.setItem('agribot.region', JSON.stringify(r))
+      } catch {
+        /* storage unavailable: the region lasts for this session only */
+      }
+    },
+
     subscribe(s) {
       listeners.add(s)
       const heartbeat = setInterval(() => s.onDevice({ ...device, lastSeenAt: iso() }), 2000)

@@ -1,12 +1,14 @@
 import { useState, type ReactNode } from 'react'
-import { Copy, Cpu, KeyRound, LogOut, ShieldOff, Sprout, Zap } from 'lucide-react'
+import { Copy, Cpu, KeyRound, LogOut, MapPin, ShieldOff, Sprout, Zap } from 'lucide-react'
 import { API_URL } from '../data'
 import type { DataSource, Session } from '../data/types'
 import { useNow, type RoverModel } from '../hooks/useRover'
+import type { RegionModel } from '../hooks/useRegion'
 import { isOnline, relativeTime } from '../lib/status'
 import { Label, Panel, StatusChip } from '../components/ui'
+import { ClimateBars, RegionPicker, regionLine } from '../components/weather'
 
-export function RoverScreen({ model, source, session }: { model: RoverModel; source: DataSource; session: Session }) {
+export function RoverScreen({ model, source, session, region }: { model: RoverModel; source: DataSource; session: Session; region: RegionModel }) {
   const now = useNow(1000)
   const [token, setToken] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -71,6 +73,8 @@ export function RoverScreen({ model, source, session }: { model: RoverModel; sou
         </Panel>
       )}
 
+      <RegionPanel region={region} />
+
       <WakeApi />
 
       <Panel className="space-y-2">
@@ -95,6 +99,34 @@ export function RoverScreen({ model, source, session }: { model: RoverModel; sou
         )}
       </Panel>
     </div>
+  )
+}
+
+function RegionPanel({ region }: { region: RegionModel }) {
+  const [changing, setChanging] = useState(false)
+  const r = region.region
+  return (
+    <Panel className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <Label icon={MapPin}>Your region</Label>
+        {r && (
+          <button type="button" onClick={() => setChanging((c) => !c)} className="cursor-pointer text-sm font-semibold text-moss underline-offset-4 hover:underline">
+            {changing ? 'Cancel' : 'Change'}
+          </button>
+        )}
+      </div>
+      {r ? <p className="display text-3xl font-bold leading-tight">{regionLine(r)}</p> : <p className="text-bark">Not set yet. Pick where your field is.</p>}
+      {(changing || r === null) && (
+        <RegionPicker
+          onPick={async (picked) => {
+            await region.save(picked)
+            setChanging(false)
+          }}
+        />
+      )}
+      {region.error && <p className="text-sm font-semibold text-terracotta">{region.error}</p>}
+      {r && <ClimateBars normals={region.climate} />}
+    </Panel>
   )
 }
 

@@ -1,5 +1,6 @@
 import type { LabelKey } from '../lib/labels'
 import type { Verdict } from '../lib/status'
+import type { Region } from '../lib/weather'
 
 export interface Capture {
   id: string
@@ -73,4 +74,6 @@ export interface DataSource {
   deleteCapture(c: Capture): Promise<void>
   imageUrl(path: string): Promise<string>
   subscribe(s: Subscription): () => void
+  getRegion(): Promise<Region | null>
+  saveRegion(r: Region): Promise<void>
 }
