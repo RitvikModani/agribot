@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Copy, KeyRound, LogOut, ShieldOff, Zap } from 'lucide-react'
+import { Copy, Cpu, KeyRound, LogOut, ShieldOff, Sprout, Zap } from 'lucide-react'
 import { API_URL } from '../data'
 import type { DataSource, Session } from '../data/types'
 import { useNow, type RoverModel } from '../hooks/useRover'
@@ -23,19 +23,23 @@ export function RoverScreen({ model, source, session }: { model: RoverModel; sou
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid gap-5 lg:grid-cols-2">
       {rover === null && <CreateRover busy={busy} onCreate={(name) => issue(() => source.createDevice(name))} />}
 
       {rover && (
-        <Panel className="space-y-3 lg:col-span-2">
+        <Panel className="relative space-y-4 overflow-hidden lg:col-span-2">
+          <Sprout className="pointer-events-none absolute -bottom-8 right-2 size-40 text-moss/[0.07]" aria-hidden="true" />
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h1 className="condensed font-display text-6xl font-black uppercase leading-none">{rover.device.name}</h1>
+            <div>
+              <Label>Your rover</Label>
+              <h1 className="display mt-1 text-5xl font-bold leading-none">{rover.device.name}</h1>
+            </div>
             <StatusChip online={isOnline(rover.device.lastSeenAt, now)} />
           </div>
-          <dl className="grid grid-cols-2 gap-3 font-mono text-sm sm:grid-cols-4">
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Fact term="Last seen" value={relativeTime(rover.device.lastSeenAt, now)} />
             <Fact term="Patrol" value={rover.state.patrolOn ? `On · ${rover.state.patrolIntervalS}s` : 'Off'} />
-            <Fact term="Plant tag" value={rover.state.plantTag ?? '—'} />
+            <Fact term="Bed tag" value={rover.state.plantTag ?? '—'} />
             <Fact term="Since" value={new Date(rover.device.createdAt).toLocaleDateString()} />
           </dl>
         </Panel>
@@ -43,18 +47,15 @@ export function RoverScreen({ model, source, session }: { model: RoverModel; sou
 
       {rover && (
         <Panel className="space-y-4">
-          <div className="flex items-center gap-2">
-            <KeyRound className="size-5 text-chlorophyll" aria-hidden="true" />
-            <Label>Device token</Label>
-          </div>
+          <Label icon={KeyRound}>Device token</Label>
           {rover.device.revokedAt ? (
-            <p className="border-2 border-rust px-3 py-2 text-rust">Revoked. The rover is locked out until you issue a new token.</p>
+            <p className="rounded-xl bg-terracotta/10 px-4 py-3 font-semibold text-terracotta ring-1 ring-terracotta/40">Revoked. The rover is locked out until you issue a new token.</p>
           ) : (
-            <p className="text-stalk">The camera proves who it is with this token. Only its hash is stored, so a lost token can't be shown again, only replaced.</p>
+            <p className="text-bark">The camera proves who it is with this token. Only its hash is stored, so a lost token can't be shown again, only replaced.</p>
           )}
           {token && <TokenReveal token={token} replay={source.kind === 'replay'} />}
-          <div className="grid gap-2 sm:grid-cols-2">
-            <ConfirmButton label="Issue new token" confirm="Old token stops working · confirm" disabled={busy} tone="go" onConfirm={() => issue(() => source.rotateToken(rover.device.id))} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ConfirmButton label="Issue new token" confirm="Old one stops working · confirm" disabled={busy} tone="go" onConfirm={() => issue(() => source.rotateToken(rover.device.id))} />
             <ConfirmButton
               label="Revoke"
               confirm="Lock the rover out · confirm"
@@ -73,10 +74,10 @@ export function RoverScreen({ model, source, session }: { model: RoverModel; sou
       <WakeApi />
 
       <Panel className="space-y-2">
-        <Label>Model</Label>
-        <p className="condensed font-display text-3xl font-black uppercase">tomato-tm-v1</p>
-        <ul className="space-y-1 text-sm text-stalk">
-          <li>10 tomato leaf classes. Other crops will be misread.</li>
+        <Label icon={Cpu}>Model</Label>
+        <p className="display text-3xl font-bold">tomato-tm-v1</p>
+        <ul className="list-inside list-disc space-y-1 text-[15px] text-bark marker:text-sprout">
+          <li>10 tomato leaf diseases. Other crops will be misread.</li>
           <li>78.5% on a 200-image PlantVillage lab sample (model/EVAL.md).</li>
           <li>Not yet validated on real field photos.</li>
         </ul>
@@ -88,7 +89,7 @@ export function RoverScreen({ model, source, session }: { model: RoverModel; sou
           <p className="mt-1 font-mono text-sm">{session.email}</p>
         </div>
         {source.kind === 'supabase' && (
-          <button type="button" onClick={() => void source.signOut()} className="flex h-11 cursor-pointer items-center gap-2 border-2 border-furrow px-4 font-mono text-[12px] font-bold uppercase tracking-widest text-stalk hover:text-bone">
+          <button type="button" onClick={() => void source.signOut()} className="flex h-11 cursor-pointer items-center gap-2 rounded-xl bg-inset px-4 font-semibold text-bark ring-1 ring-line hover:text-soil">
             <LogOut className="size-4" aria-hidden="true" /> Sign out
           </button>
         )}
@@ -99,9 +100,9 @@ export function RoverScreen({ model, source, session }: { model: RoverModel; sou
 
 function Fact({ term, value }: { term: string; value: string }) {
   return (
-    <div>
-      <dt className="text-[11px] uppercase tracking-widest text-stalk">{term}</dt>
-      <dd className="mt-0.5 truncate">{value}</dd>
+    <div className="rounded-xl bg-inset px-3 py-2">
+      <dt className="text-[11px] font-semibold uppercase tracking-widest text-bark">{term}</dt>
+      <dd className="mt-0.5 truncate font-semibold">{value}</dd>
     </div>
   )
 }
@@ -109,14 +110,15 @@ function Fact({ term, value }: { term: string; value: string }) {
 function CreateRover({ busy, onCreate }: { busy: boolean; onCreate: (name: string) => void }) {
   const [name, setName] = useState('AgriBot-01')
   return (
-    <Panel className="space-y-3 lg:col-span-2">
-      <h1 className="condensed font-display text-5xl font-black uppercase leading-none">Create your rover</h1>
-      <p className="text-stalk">This registers the camera and gives you its token, shown once. Paste it into the AgriBot-Setup portal.</p>
+    <Panel className="space-y-4 lg:col-span-2">
+      <Sprout className="size-10 text-moss" aria-hidden="true" />
+      <h1 className="display text-5xl font-bold leading-none">Plant your rover</h1>
+      <p className="text-bark">This registers the camera and gives you its token, shown once. Paste it into the AgriBot-Setup portal.</p>
       <label className="block">
         <Label>Rover name</Label>
-        <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} className="mt-1.5 h-11 w-full border-2 border-furrow bg-soil px-3 font-mono text-base focus:border-chlorophyll focus:outline-none" />
+        <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} className="mt-2 h-12 w-full rounded-xl border-[1.5px] border-line bg-paper px-4 text-base focus:border-moss focus:outline-none" />
       </label>
-      <button type="button" disabled={busy || !name.trim()} onClick={() => onCreate(name.trim())} className="h-12 w-full cursor-pointer border-2 border-chlorophyll bg-chlorophyll font-mono text-sm font-bold uppercase tracking-widest text-soil disabled:opacity-50">
+      <button type="button" disabled={busy || !name.trim()} onClick={() => onCreate(name.trim())} className="clay h-13 w-full cursor-pointer rounded-xl bg-moss font-semibold text-cream disabled:opacity-50">
         Create rover
       </button>
     </Panel>
@@ -126,20 +128,20 @@ function CreateRover({ busy, onCreate }: { busy: boolean; onCreate: (name: strin
 function TokenReveal({ token, replay }: { token: string; replay: boolean }) {
   const [copied, setCopied] = useState(false)
   return (
-    <div className="space-y-2 border-2 border-chlorophyll p-3">
-      <Label className="text-chlorophyll">{replay ? 'Replay mode: not a real token' : 'Shown once — copy it now'}</Label>
-      <code className="block break-all bg-soil p-2 font-mono text-sm text-bone">{token}</code>
+    <div className="space-y-3 rounded-xl border-[1.5px] border-dashed border-moss bg-sprout/15 p-4">
+      <Label className="text-moss">{replay ? 'Replay mode: not a real token' : 'Shown once. Copy it now'}</Label>
+      <code className="block break-all rounded-lg bg-soil p-3 font-mono text-sm text-cream">{token}</code>
       <button
         type="button"
         onClick={async () => {
           await navigator.clipboard.writeText(token)
           setCopied(true)
         }}
-        className="flex h-11 cursor-pointer items-center gap-2 border-2 border-chlorophyll px-4 font-mono text-[12px] font-bold uppercase tracking-widest text-chlorophyll"
+        className="clay flex h-11 cursor-pointer items-center gap-2 rounded-xl bg-moss px-4 font-semibold text-cream"
       >
         <Copy className="size-4" aria-hidden="true" /> {copied ? 'Copied' : 'Copy token'}
       </button>
-      <p className="text-xs text-stalk">On the camera: press RST twice → join Wi-Fi “AgriBot-Setup” → paste into Device token.</p>
+      <p className="text-[13px] text-bark">On the camera: press RST twice, join the Wi-Fi “AgriBot-Setup”, paste it into Device token.</p>
     </div>
   )
 }
@@ -160,7 +162,7 @@ function ConfirmButton({
   onConfirm: () => Promise<void> | void
 }) {
   const [armed, setArmed] = useState(false)
-  const armedLook = tone === 'go' ? 'border-chlorophyll bg-chlorophyll text-soil' : 'border-rust bg-rust text-soil'
+  const armedLook = tone === 'go' ? 'bg-moss text-cream [--lip:var(--color-moss-deep)]' : 'bg-terracotta text-cream [--lip:#6e2f15]'
   return (
     <button
       type="button"
@@ -171,8 +173,8 @@ function ConfirmButton({
         await onConfirm()
       }}
       onBlur={() => setArmed(false)}
-      className={`flex min-h-12 cursor-pointer items-center justify-center gap-2 border-2 px-3 font-mono text-[12px] font-bold uppercase tracking-widest disabled:cursor-not-allowed disabled:opacity-40 ${
-        armed ? armedLook : 'border-furrow text-bone hover:border-bone'
+      className={`clay flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl px-3 font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${
+        armed ? armedLook : 'bg-inset text-soil [--lip:var(--color-line)]'
       }`}
     >
       {icon}
@@ -204,12 +206,9 @@ function WakeApi() {
   }
   return (
     <Panel className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Zap className="size-5 text-chlorophyll" aria-hidden="true" />
-        <Label>Inference API</Label>
-      </div>
-      <p className="break-all font-mono text-sm text-stalk">{API_URL || 'not configured'}</p>
-      <button type="button" onClick={ping} disabled={busy} className="h-12 w-full cursor-pointer border-2 border-chlorophyll font-mono text-sm font-bold uppercase tracking-widest text-chlorophyll hover:bg-chlorophyll hover:text-soil disabled:cursor-wait">
+      <Label icon={Zap}>Inference API</Label>
+      <p className="break-all font-mono text-sm text-bark">{API_URL || 'not configured'}</p>
+      <button type="button" onClick={ping} disabled={busy} className="clay h-12 w-full cursor-pointer rounded-xl bg-ochre font-semibold text-soil [--lip:var(--color-ochre-deep)] disabled:cursor-wait">
         Wake API
       </button>
       {result && (

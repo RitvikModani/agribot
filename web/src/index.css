@@ -1,53 +1,86 @@
 @import 'tailwindcss';
 
-/* AgriBot "field instrument" tokens — see web/DESIGN.md */
+/* AgriBot "field journal" tokens — see web/DESIGN.md */
 @theme {
-  --color-soil: #0b0d08;
-  --color-bed: #13160e;
-  --color-furrow: #2b3122;
-  --color-bone: #eef2e3;
-  --color-stalk: #a3aa92;
-  --color-chlorophyll: #c8f031;
-  --color-rust: #ff6a2b;
-  --color-pollen: #f2c94c;
+  --color-paper: #f1e7d2;
+  --color-card: #fbf5e7;
+  --color-inset: #efe3c9;
+  --color-line: #d6c39f;
+  --color-soil: #33241a;
+  --color-loam: #4a3627;
+  --color-bark: #6b5442;
+  --color-cream: #fbf5e7;
+  --color-moss: #4e6a2c;
+  --color-moss-deep: #34481c;
+  --color-sprout: #86a35a;
+  --color-terracotta: #a64a24;
+  --color-ochre: #c08a2b;
+  --color-ochre-deep: #8a5f17;
 
-  --font-sans: 'Archivo Variable', system-ui, sans-serif;
-  --font-display: 'Archivo Variable', 'Arial Narrow', system-ui, sans-serif;
+  --font-sans: 'DM Sans Variable', system-ui, sans-serif;
+  --font-display: 'Fraunces Variable', Georgia, serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Mono', monospace;
 }
 
 @layer base {
   html {
-    color-scheme: dark;
-    background: var(--color-soil);
+    color-scheme: light;
+    background: var(--color-paper);
   }
   body {
     min-height: 100dvh;
-    background: var(--color-soil);
-    color: var(--color-bone);
+    color: var(--color-soil);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    /* Paper grain: fine fractal noise over warm sand. */
+    background-color: var(--color-paper);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .2 0 0 0 0 .14 0 0 0 0 .1 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
   :focus-visible {
-    outline: 2px solid var(--color-chlorophyll);
+    outline: 2.5px solid var(--color-ochre);
     outline-offset: 2px;
   }
   ::selection {
-    background: var(--color-chlorophyll);
+    background: var(--color-sprout);
     color: var(--color-soil);
   }
 }
 
-.condensed {
-  font-stretch: 62.5%;
-}
-.semi-condensed {
-  font-stretch: 82%;
+/* Fraunces at full softness with its "wonky" letterforms: hand-set, not corporate. */
+.display {
+  font-family: var(--font-display);
+  font-variation-settings: 'SOFT' 100, 'WONK' 1;
+  letter-spacing: -0.015em;
 }
 
-/* Telemetry ticker */
+/* Soil band with faint terrain contour lines */
+.soil-band {
+  background-color: var(--color-soil);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='120' fill='none' stroke='%23fbf5e7' stroke-opacity='.07' stroke-width='1.2'%3E%3Cpath d='M0 20c40-14 80 14 120 0s80-14 120 0 80 14 120 0'/%3E%3Cpath d='M0 44c40-14 80 14 120 0s80-14 120 0 80 14 120 0'/%3E%3Cpath d='M0 68c40-14 80 14 120 0s80-14 120 0 80 14 120 0'/%3E%3Cpath d='M0 92c40-14 80 14 120 0s80-14 120 0 80 14 120 0'/%3E%3Cpath d='M0 116c40-14 80 14 120 0s80-14 120 0 80 14 120 0'/%3E%3C/svg%3E");
+  color: var(--color-cream);
+}
+
+/* Paper card with a pressed offset shadow */
+.paper {
+  background: var(--color-card);
+  border: 1.5px solid var(--color-line);
+  border-radius: 1.25rem;
+  box-shadow: 0 3px 0 rgb(51 36 26 / 0.1);
+}
+
+/* Pressed-clay buttons: a solid lip underneath that collapses on press */
+.clay {
+  box-shadow: 0 5px 0 var(--lip, var(--color-moss-deep));
+  transition: transform 120ms ease-out, box-shadow 120ms ease-out, background-color 150ms;
+}
+.clay:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 var(--lip, var(--color-moss-deep));
+}
+
+/* Field-notes ticker */
 .ticker-track {
-  animation: marquee 45s linear infinite;
+  animation: marquee 50s linear infinite;
 }
 @keyframes marquee {
   to {
@@ -55,28 +88,23 @@
   }
 }
 
-/* Replay warning stripe */
+/* Replay warning stripe: ochre and soil */
 .hazard {
-  background: repeating-linear-gradient(-45deg, var(--color-pollen) 0 12px, var(--color-soil) 12px 24px);
+  background: repeating-linear-gradient(-45deg, var(--color-ochre) 0 12px, var(--color-soil) 12px 24px);
 }
 
-/* Camera viewport: rule-of-thirds grid, corner brackets, scan sweep */
-.frame-grid {
-  background-image:
-    linear-gradient(to right, rgb(238 242 227 / 0.07) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(238 242 227 / 0.07) 1px, transparent 1px);
-  background-size: 33.333% 33.333%;
-}
+/* Specimen viewport: corner ticks and a scan sweep */
 .bracket {
   position: absolute;
-  width: 26px;
-  height: 26px;
-  border: 0 solid var(--color-chlorophyll);
+  width: 24px;
+  height: 24px;
+  border: 0 solid var(--color-cream);
+  filter: drop-shadow(0 1px 1px rgb(51 36 26 / 0.5));
 }
-.bracket-tl { top: 10px; left: 10px; border-top-width: 3px; border-left-width: 3px; }
-.bracket-tr { top: 10px; right: 10px; border-top-width: 3px; border-right-width: 3px; }
-.bracket-bl { bottom: 10px; left: 10px; border-bottom-width: 3px; border-left-width: 3px; }
-.bracket-br { bottom: 10px; right: 10px; border-bottom-width: 3px; border-right-width: 3px; }
+.bracket-tl { top: 12px; left: 12px; border-top-width: 3px; border-left-width: 3px; border-top-left-radius: 8px; }
+.bracket-tr { top: 12px; right: 12px; border-top-width: 3px; border-right-width: 3px; border-top-right-radius: 8px; }
+.bracket-bl { bottom: 12px; left: 12px; border-bottom-width: 3px; border-left-width: 3px; border-bottom-left-radius: 8px; }
+.bracket-br { bottom: 12px; right: 12px; border-bottom-width: 3px; border-right-width: 3px; border-bottom-right-radius: 8px; }
 
 .scan-sweep {
   position: absolute;
@@ -90,30 +118,34 @@
   inset-inline: 0;
   top: 0;
   height: 3px;
-  background: var(--color-chlorophyll);
-  box-shadow: 0 0 22px 6px rgb(200 240 49 / 0.4);
+  background: var(--color-ochre);
+  box-shadow: 0 0 18px 5px rgb(192 138 43 / 0.55);
 }
 @keyframes sweep {
   from { transform: translateY(2%); }
   to { transform: translateY(97%); }
 }
 
-/* Verdict lands like a rubber stamp */
-.stamp {
-  animation: stamp 190ms cubic-bezier(0.2, 0.9, 0.3, 1.35) both;
+/* Specimen label: lands like an ink stamp */
+.specimen {
+  animation: stamp 200ms cubic-bezier(0.2, 0.9, 0.3, 1.35) both;
   transform-origin: left bottom;
-  transform: rotate(-2deg);
+  transform: rotate(-2.5deg);
+}
+.specimen-inner {
+  border: 1.5px dashed currentColor;
+  border-radius: 0.6rem;
 }
 @keyframes stamp {
-  from { transform: scale(1.4) rotate(-6deg); opacity: 0; }
-  to { transform: scale(1) rotate(-2deg); opacity: 1; }
+  from { transform: scale(1.35) rotate(-7deg); opacity: 0; }
+  to { transform: scale(1) rotate(-2.5deg); opacity: 1; }
 }
 
 .pulse-dot {
-  animation: pulse 1.4s ease-in-out infinite;
+  animation: pulse 1.6s ease-in-out infinite;
 }
 @keyframes pulse {
-  50% { opacity: 0.3; }
+  50% { opacity: 0.35; }
 }
 
 .safe-bottom {
@@ -123,7 +155,7 @@
 @media (prefers-reduced-motion: reduce) {
   .ticker-track,
   .scan-sweep,
-  .stamp,
+  .specimen,
   .pulse-dot {
     animation: none !important;
   }

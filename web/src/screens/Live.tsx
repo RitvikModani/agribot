@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Crosshair, Minus, Plus, RotateCcw } from 'lucide-react'
+import { Leaf, Minus, Plus, RotateCcw, ScanLine, Sprout, Stethoscope, Tag, Timer } from 'lucide-react'
 import type { Capture, DataSource } from '../data/types'
 import { useNow, type RoverModel } from '../hooks/useRover'
 import { REMEDY, REMEDY_FOOTER } from '../lib/labels'
-import { captureRequestStatus, clockTime, isOnline, relativeTime, verdictView, type RequestStatus } from '../lib/status'
+import { captureRequestStatus, isOnline, relativeTime, verdictView, type RequestStatus } from '../lib/status'
 import {
   ConfidenceBlocks,
   Label,
@@ -26,13 +26,14 @@ export function Live({ model, source, onOpenRover }: { model: RoverModel; source
   const latest = captures[0]
   const src = useImageUrl(source, latest?.imagePath)
 
-  if (rover === undefined) return <Label className="block p-6">Connecting to rover…</Label>
+  if (rover === undefined) return <p className="display p-2 text-xl italic text-bark">Finding the rover…</p>
   if (rover === null) {
     return (
       <Panel className="space-y-3">
-        <p className="condensed font-display text-4xl font-black uppercase">No rover yet</p>
-        <p className="text-stalk">Create the rover and get its device token, then flash the camera.</p>
-        <button type="button" onClick={onOpenRover} className="h-12 cursor-pointer border-2 border-chlorophyll bg-chlorophyll px-5 font-mono text-sm font-bold uppercase tracking-widest text-soil">
+        <Sprout className="size-10 text-moss" aria-hidden="true" />
+        <h1 className="display text-4xl font-bold">Plant your first rover</h1>
+        <p className="text-bark">Register the camera to get its device token, then flash it.</p>
+        <button type="button" onClick={onOpenRover} className="clay h-12 cursor-pointer rounded-xl bg-moss px-6 font-semibold text-cream">
           Set up rover
         </button>
       </Panel>
@@ -45,21 +46,21 @@ export function Live({ model, source, onOpenRover }: { model: RoverModel; source
   const revoked = rover.device.revokedAt !== null
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
-      <div className="space-y-3">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+      <div className="space-y-4">
         <ScanFrame src={src} scanning={request === 'pending'} alt={latest ? `Latest capture, ${view?.headline}` : 'No capture yet'}>
-          <div className="absolute inset-x-0 top-0 flex justify-between p-3 font-mono text-[12px] uppercase tracking-widest">
-            <span className="bg-soil/80 px-1.5 py-0.5 text-chlorophyll">CAM-01 · 640×480</span>
-            {latest && <span className="bg-soil/80 px-1.5 py-0.5 text-bone">{clockTime(latest.createdAt)}</span>}
+          <div className="absolute inset-x-0 top-0 flex justify-between p-3">
+            <span className="rounded-full bg-soil/75 px-2.5 py-1 font-mono text-[11px] uppercase tracking-widest text-cream">Cam 01 · 640×480</span>
+            {latest?.plantTag && <span className="rounded-full bg-cream/90 px-2.5 py-1 text-[12px] font-semibold text-soil">{latest.plantTag}</span>}
           </div>
           {request === 'pending' && (
             <div className="absolute inset-x-0 bottom-0 p-4">
-              <span className="bg-soil px-2 py-1 font-mono text-sm font-bold uppercase tracking-widest text-chlorophyll">Acquiring frame…</span>
+              <span className="display rounded-xl bg-soil/85 px-3 py-1.5 text-lg italic text-cream">Looking closely…</span>
             </div>
           )}
           {view && latest && request !== 'pending' && (
             <div className="absolute inset-x-0 bottom-0 p-4">
-              <VerdictStamp view={view} id={latest.id} />
+              <VerdictStamp view={view} id={latest.id} createdAt={latest.createdAt} />
             </div>
           )}
         </ScanFrame>
@@ -71,13 +72,13 @@ export function Live({ model, source, onOpenRover }: { model: RoverModel; source
           onPress={() => void model.requestCapture()}
         />
         {!online && (
-          <p className="font-mono text-xs uppercase tracking-wider text-stalk">
-            Rover last seen {relativeTime(rover.device.lastSeenAt, now)} · check the hotspot and the camera's power
+          <p className="text-sm text-bark">
+            Rover last seen {relativeTime(rover.device.lastSeenAt, now)}. Check the hotspot and the camera's power.
           </p>
         )}
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-5">
         <Diagnosis capture={latest} />
         <PatrolPanel model={model} />
         <Recent captures={captures.slice(1, 9)} source={source} />
@@ -100,25 +101,25 @@ function CaptureButton({
   onPress: () => void
 }) {
   const blocked = !online || revoked
-  const label = revoked ? 'Token revoked' : !online ? 'Rover offline' : status === 'pending' ? `Capturing · ${elapsedS}s` : status === 'stalled' ? 'Not received · retry' : 'Capture'
+  const label = revoked ? 'Token revoked' : !online ? 'Rover offline' : status === 'pending' ? `Capturing · ${elapsedS}s` : status === 'stalled' ? 'Not received · retry' : 'Capture leaf'
   const look = blocked
-    ? 'cursor-not-allowed border-furrow bg-bed text-stalk'
+    ? 'cursor-not-allowed bg-inset text-bark [--lip:var(--color-line)]'
     : status === 'pending'
-      ? 'cursor-wait border-chlorophyll bg-bed text-chlorophyll'
+      ? 'cursor-wait bg-moss-deep text-cream [--lip:#24320f]'
       : status === 'stalled'
-        ? 'cursor-pointer border-pollen bg-pollen text-soil'
-        : 'cursor-pointer border-chlorophyll bg-chlorophyll text-soil hover:bg-bone hover:border-bone'
+        ? 'cursor-pointer bg-ochre text-soil [--lip:var(--color-ochre-deep)]'
+        : 'cursor-pointer bg-moss text-cream hover:bg-[#577733]'
   return (
     <button
       type="button"
       onClick={onPress}
       disabled={blocked || status === 'pending'}
-      className={`condensed relative flex h-[4.5rem] w-full items-center justify-center gap-3 overflow-hidden border-2 font-display text-4xl font-black uppercase tracking-wide transition-[background-color,transform] duration-150 active:translate-y-[2px] ${look}`}
+      className={`clay relative flex h-[4.5rem] w-full items-center justify-center gap-3 overflow-hidden rounded-2xl ${look}`}
     >
-      {status === 'stalled' ? <RotateCcw className="size-7" aria-hidden="true" /> : <Crosshair className="size-7" aria-hidden="true" />}
-      {label}
+      {status === 'stalled' ? <RotateCcw className="size-7" aria-hidden="true" /> : <ScanLine className="size-7" aria-hidden="true" />}
+      <span className="display text-[1.9rem] font-bold">{label}</span>
       {status === 'pending' && (
-        <span className="absolute bottom-0 left-0 h-1.5 bg-chlorophyll transition-[width] duration-1000 ease-linear" style={{ width: `${Math.min(100, (elapsedS / 15) * 100)}%` }} />
+        <span className="absolute bottom-0 left-0 h-1.5 bg-sprout transition-[width] duration-1000 ease-linear" style={{ width: `${Math.min(100, (elapsedS / 15) * 100)}%` }} />
       )}
     </button>
   )
@@ -128,27 +129,28 @@ function Diagnosis({ capture }: { capture: Capture | undefined }) {
   if (!capture) {
     return (
       <Panel>
-        <Label>Diagnosis</Label>
-        <p className="mt-2 text-stalk">Waiting for the first capture. Press Capture, or switch on Patrol.</p>
+        <Label icon={Stethoscope}>Diagnosis</Label>
+        <p className="display mt-2 text-xl italic text-bark">Waiting for the first leaf. Press Capture, or start a patrol.</p>
       </Panel>
     )
   }
   const view = verdictView(capture)
   return (
-    <Panel className="space-y-4">
+    <Panel className="relative space-y-5 overflow-hidden">
+      <Leaf className="pointer-events-none absolute -right-6 -top-6 size-36 rotate-12 text-moss/[0.07]" aria-hidden="true" />
       <div>
         <div className="flex items-baseline justify-between">
-          <Label>Diagnosis</Label>
-          <span className="font-mono text-xs text-stalk">{capture.modelVersion}</span>
+          <Label icon={Stethoscope}>Diagnosis</Label>
+          <span className="font-mono text-[11px] text-bark">{capture.modelVersion}</span>
         </div>
-        <p className={`condensed mt-1 font-display text-5xl font-black uppercase leading-none ${toneText[view.tone]}`}>{view.headline}</p>
-        <p className="mt-1.5 text-stalk">{view.detail}</p>
+        <h2 className={`display mt-1 text-5xl font-bold leading-[1.02] ${toneText[view.tone]}`}>{view.headline}</h2>
+        <p className="mt-1.5 text-bark">{view.detail}</p>
       </div>
       {capture.verdict !== 'no_leaf' && <ConfidenceBlocks value={capture.confidence} tone={view.tone} />}
       <LeafMeter value={capture.leafFraction} />
       {capture.verdict !== 'no_leaf' && (
         <div>
-          <Label>Top 3</Label>
+          <Label>Top three</Label>
           <div className="mt-2">
             <Top3 items={capture.top3} />
           </div>
@@ -156,10 +158,10 @@ function Diagnosis({ capture }: { capture: Capture | undefined }) {
       )}
       {capture.truth && <TruthLine truth={capture.truth} predicted={capture.label} />}
       {view.showRemedy && (
-        <div className={`border-l-4 pl-3 ${view.tone === 'healthy' ? 'border-chlorophyll' : 'border-rust'}`}>
-          <Label>{view.tone === 'healthy' ? 'Care' : 'Treatment'}</Label>
-          <p className="mt-1 leading-relaxed">{REMEDY[capture.label]}</p>
-          {view.tone === 'disease' && <p className="mt-2 text-xs text-stalk">{REMEDY_FOOTER}</p>}
+        <div className={`rounded-xl p-4 ${view.tone === 'healthy' ? 'bg-sprout/20' : 'bg-terracotta/10'}`}>
+          <Label className={view.tone === 'healthy' ? 'text-moss' : 'text-terracotta'}>{view.tone === 'healthy' ? 'Care' : 'Treatment'}</Label>
+          <p className="mt-1.5 leading-relaxed">{REMEDY[capture.label]}</p>
+          {view.tone === 'disease' && <p className="mt-2 text-[13px] italic text-bark">{REMEDY_FOOTER}</p>}
         </div>
       )}
     </Panel>
@@ -181,11 +183,11 @@ function PatrolPanel({ model }: { model: RoverModel }) {
   }
 
   return (
-    <Panel className="space-y-4">
+    <Panel className="space-y-5">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <Label>Patrol</Label>
-          <p className="mt-1 text-sm text-stalk">Auto-capture while you drive the rows.</p>
+          <Label icon={Timer}>Patrol</Label>
+          <p className="mt-1 text-[15px] text-bark">Capture automatically while you drive down the row.</p>
         </div>
         <button
           type="button"
@@ -193,25 +195,25 @@ function PatrolPanel({ model }: { model: RoverModel }) {
           aria-checked={state.patrolOn}
           aria-label="Patrol"
           onClick={() => void model.updateControls({ patrolOn: !state.patrolOn })}
-          className={`relative h-9 w-16 shrink-0 cursor-pointer border-2 transition-colors duration-150 ${state.patrolOn ? 'border-chlorophyll bg-chlorophyll' : 'border-furrow bg-soil'}`}
+          className={`relative h-9 w-16 shrink-0 cursor-pointer rounded-full transition-colors duration-150 ${state.patrolOn ? 'bg-moss' : 'bg-inset ring-1 ring-inset ring-line'}`}
         >
-          <span className={`absolute top-1 size-5 transition-[left] duration-150 ${state.patrolOn ? 'left-8 bg-soil' : 'left-1 bg-stalk'}`} />
+          <span className={`absolute top-1 size-7 rounded-full shadow-[0_2px_0_rgb(51_36_26/0.25)] transition-[left] duration-150 ${state.patrolOn ? 'left-8 bg-cream' : 'left-1 bg-bark/60'}`} />
         </button>
       </div>
-      <div className="flex items-center gap-2">
-        <button type="button" onClick={() => step(-1)} aria-label="Shorter interval" className="grid size-11 cursor-pointer place-items-center border-2 border-furrow hover:border-bone">
+      <div className="flex items-center gap-3">
+        <button type="button" onClick={() => step(-1)} aria-label="Shorter interval" className="clay grid size-11 cursor-pointer place-items-center rounded-xl bg-inset text-soil [--lip:var(--color-line)]">
           <Minus className="size-5" aria-hidden="true" />
         </button>
         <div className="flex-1 text-center">
-          <span className="font-mono text-3xl font-semibold tabular-nums">{state.patrolIntervalS}</span>
-          <span className="ml-1 font-mono text-sm text-stalk">s / frame</span>
+          <span className="display text-4xl font-bold tabular-nums">{state.patrolIntervalS}</span>
+          <span className="ml-1.5 text-sm text-bark">seconds per leaf</span>
         </div>
-        <button type="button" onClick={() => step(1)} aria-label="Longer interval" className="grid size-11 cursor-pointer place-items-center border-2 border-furrow hover:border-bone">
+        <button type="button" onClick={() => step(1)} aria-label="Longer interval" className="clay grid size-11 cursor-pointer place-items-center rounded-xl bg-inset text-soil [--lip:var(--color-line)]">
           <Plus className="size-5" aria-hidden="true" />
         </button>
       </div>
       <label className="block">
-        <Label>Plant tag</Label>
+        <Label icon={Tag}>Bed or plant tag</Label>
         <input
           value={tag}
           onChange={(e) => setTag(e.target.value)}
@@ -219,9 +221,9 @@ function PatrolPanel({ model }: { model: RoverModel }) {
           onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
           maxLength={40}
           placeholder="row-4 / plant-12"
-          className="mt-1.5 h-11 w-full border-2 border-furrow bg-soil px-3 font-mono text-base text-bone placeholder:text-stalk/60 focus:border-chlorophyll focus:outline-none"
+          className="mt-2 h-12 w-full rounded-xl border-[1.5px] border-line bg-paper px-4 text-base text-soil placeholder:text-bark/60 focus:border-moss focus:outline-none"
         />
-        <span className="mt-1 block text-xs text-stalk">Stamped onto every capture until you change it.</span>
+        <span className="mt-1.5 block text-[13px] text-bark">Written onto every capture until you change it.</span>
       </label>
     </Panel>
   )
@@ -231,8 +233,8 @@ function Recent({ captures, source }: { captures: Capture[]; source: DataSource 
   if (!captures.length) return null
   return (
     <div>
-      <Label>Earlier</Label>
-      <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+      <Label icon={Leaf}>Earlier specimens</Label>
+      <div className="mt-2.5 flex gap-3 overflow-x-auto pb-2">
         {captures.map((c) => (
           <RecentThumb key={c.id} capture={c} source={source} />
         ))}
@@ -245,10 +247,12 @@ function RecentThumb({ capture, source }: { capture: Capture; source: DataSource
   const src = useImageUrl(source, capture.imagePath)
   const view = verdictView(capture)
   return (
-    <figure className="w-20 shrink-0">
-      <div className="aspect-square border-2 border-furrow bg-bed">{src && <img src={src} alt={view.headline} loading="lazy" className="size-full object-cover" />}</div>
-      <div className={`h-1.5 ${toneFill[view.tone]}`} />
-      <figcaption className="mt-1 truncate font-mono text-[11px] uppercase text-stalk">{view.tone === 'none' ? 'no leaf' : view.headline}</figcaption>
+    <figure className="paper w-24 shrink-0 p-1.5">
+      <div className="aspect-square overflow-hidden rounded-lg bg-inset">{src && <img src={src} alt={view.headline} loading="lazy" className="size-full object-cover" />}</div>
+      <figcaption className="mt-1.5 flex items-center gap-1.5 px-0.5">
+        <span className={`size-2 shrink-0 rounded-full ${toneFill[view.tone]}`} aria-hidden="true" />
+        <span className="truncate text-[12px] font-semibold">{view.tone === 'none' ? 'No leaf' : view.tone === 'uncertain' ? 'Unsure' : view.headline}</span>
+      </figcaption>
     </figure>
   )
 }

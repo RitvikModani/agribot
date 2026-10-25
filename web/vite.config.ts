@@ -17,8 +17,8 @@ export default defineConfig({
         name: 'AgriBot — field console',
         short_name: 'AgriBot',
         description: 'Control the AgriBot rover and read its tomato-leaf diagnoses.',
-        theme_color: '#0b0d08',
-        background_color: '#0b0d08',
+        theme_color: '#33241a',
+        background_color: '#33241a',
         display: 'standalone',
         orientation: 'portrait',
         icons: [
