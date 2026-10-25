@@ -22,6 +22,8 @@ from .config import Settings
 from .inference import Classifier, OnnxClassifier
 from .preprocess import InvalidImage, decode, leaf_fraction, to_tensor
 from .ratelimit import RateLimiter
+from .climate import ClimateError, ClimateSource, OpenMeteoClimate
+from .guides import GeminiGuides, GuideError, GuideWriter, check_place, normalize_plant
 from .shops import INGREDIENTS, GeminiShops, ShopFinder, ShopsError
 from .store import CaptureRow, Device, MemoryStore, Store, StoreError
 from .user_auth import SupabaseUserAuth, UserAuth
@@ -33,6 +35,16 @@ class ShopRequest(BaseModel):
     label: str
     lat: float = Field(ge=-90, le=90)
     lon: float = Field(ge=-180, le=180)
+
+
+class GuideRequest(BaseModel):
+    plant: str
+    place: str
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
+
+
+GUIDE_CACHE_TTL = timedelta(days=30)
 
 log = logging.getLogger("agribot")
 
@@ -52,7 +64,8 @@ def capture_view(row: CaptureRow) -> dict:
 
 def create_app(store: Store, classifier: Classifier, settings: Settings,
                clock: Callable[[], datetime] = utcnow, shops: ShopFinder | None = None,
-               user_auth: UserAuth | None = None) -> FastAPI:
+               user_auth: UserAuth | None = None, guides: GuideWriter | None = None,
+               climate: ClimateSource | None = None) -> FastAPI:
     app = FastAPI(title="AgriBot API", docs_url=None, redoc_url=None, openapi_url=None)
     # Browsers calling from the dashboard (Wake API, shops) need CORS; the camera doesn't care.
     app.add_middleware(CORSMiddleware, allow_origins=list(settings.allowed_origins),
@@ -61,6 +74,15 @@ def create_app(store: Store, classifier: Classifier, settings: Settings,
     limiter = RateLimiter()
     shop_limiter = RateLimiter(per_second=10 / 60, burst=10, daily=500)
     shop_cache: dict[tuple[str, float, float], tuple[datetime, str, list[dict]]] = {}
+    guide_limiter = RateLimiter(per_second=10 / 60, burst=10, daily=300)
+    guide_cache: dict[tuple[str, float, float], tuple[datetime, dict]] = {}
+
+    def signed_in_user(authorization: str | None) -> str:
+        token = authorization[7:].strip() if authorization and authorization.startswith("Bearer ") else ""
+        user = user_auth.user_id(token) if (user_auth and token) else None
+        if user is None:
+            raise HTTPException(401, "sign in first")
+        return user
     last_touch: dict[str, datetime] = {}
 
     @app.middleware("http")
@@ -194,6 +216,32 @@ def create_app(store: Store, classifier: Classifier, settings: Settings,
         shop_cache[key] = (now, summary, found)
         return view(summary, found, False)
 
+    @app.post("/v1/guide")
+    def grow_guide(req: GuideRequest, authorization: str | None = Header(default=None)) -> dict:
+        user = signed_in_user(authorization)
+        try:
+            plant = normalize_plant(req.plant)
+            place = check_place(req.place)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        if guides is None or climate is None:
+            raise HTTPException(503, "grow guides aren't set up (GEMINI_API_KEY missing)")
+        now = clock()
+        key = (plant, round(req.lat, 1), round(req.lon, 1))
+        try:
+            normals = climate.normals(req.lat, req.lon)
+            hit = guide_cache.get(key)
+            if hit and now - hit[0] < GUIDE_CACHE_TTL:
+                return {"guide": hit[1], "climate": normals, "cached": True}
+            if not guide_limiter.allow(user, now):
+                raise HTTPException(429, "too many guide requests, try again in a minute")
+            guide = guides.find(plant, place, normals)
+        except (GuideError, ClimateError) as exc:
+            log.warning("guide failed: %s", exc)
+            raise HTTPException(502, "couldn't write a guide right now, try again") from exc
+        guide_cache[key] = (now, guide)
+        return {"guide": guide, "climate": normals, "cached": False}
+
     return app
 
 
@@ -212,4 +260,6 @@ def build_app() -> FastAPI:
     shops = GeminiShops(settings.gemini_api_key, settings.gemini_model) if settings.gemini_api_key else None
     user_auth = (SupabaseUserAuth(settings.supabase_url, settings.supabase_service_role_key)
                  if settings.supabase_url and settings.supabase_service_role_key else None)
-    return create_app(store, OnnxClassifier(settings.model_path), settings, shops=shops, user_auth=user_auth)
+    guides = GeminiGuides(settings.gemini_api_key, settings.gemini_model) if settings.gemini_api_key else None
+    return create_app(store, OnnxClassifier(settings.model_path), settings, shops=shops, user_auth=user_auth,
+                      guides=guides, climate=OpenMeteoClimate())

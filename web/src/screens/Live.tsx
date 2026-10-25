@@ -184,6 +184,11 @@ function Diagnosis({
         </div>
       )}
       {capture.truth && <TruthLine truth={capture.truth} predicted={capture.label} />}
+      {capture.verdict !== 'no_leaf' && (
+        <a href="#/grow/tomato" className="flex items-center gap-1.5 text-[14px] font-semibold text-moss underline-offset-4 hover:underline">
+          <Sprout className="size-4" aria-hidden="true" /> How to grow tomato{region ? ` in ${region.placeName}` : ''}
+        </a>
+      )}
       {view.showRemedy && (
         <div className={`rounded-xl p-4 ${view.tone === 'healthy' ? 'bg-sprout/20' : 'bg-terracotta/10'}`}>
           <Label className={view.tone === 'healthy' ? 'text-moss' : 'text-terracotta'}>{view.tone === 'healthy' ? 'Care' : 'Treatment'}</Label>

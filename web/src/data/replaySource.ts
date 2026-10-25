@@ -136,6 +136,9 @@ export function createReplaySource(base: string): DataSource {
     async findShops() {
       return null
     },
+    async getGuide() {
+      return null
+    },
 
     // Replay keeps the region in this browser only.
     async getRegion() {

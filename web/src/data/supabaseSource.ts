@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Capture, DataSource, Device, DeviceState, ShopResult } from './types'
+import { placeForPrompt, type GuideResult } from '../lib/guide'
 
 type Row = Record<string, unknown>
 
@@ -40,6 +41,21 @@ function fail(error: { message: string } | null): void {
 export function createSupabaseSource(url: string, anonKey: string, apiUrl: string): DataSource {
   const sb = createClient(url, anonKey)
   const signed = new Map<string, { url: string; expires: number }>()
+
+  /** Calls our inference API as the signed-in user. */
+  async function callApi(path: string, payload: unknown): Promise<unknown> {
+    if (!apiUrl) throw new Error('VITE_API_URL is not set for this build.')
+    const { data } = await sb.auth.getSession()
+    if (!data.session) throw new Error('Sign in again first.')
+    const res = await fetch(`${apiUrl}${path}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${data.session.access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error((body as { detail?: string }).detail ?? `Request failed (${res.status})`)
+    return body
+  }
 
   return {
     kind: 'supabase',
@@ -151,17 +167,11 @@ export function createSupabaseSource(url: string, anonKey: string, apiUrl: strin
     },
 
     async findShops(label, region) {
-      if (!apiUrl) throw new Error('VITE_API_URL is not set for this build.')
-      const { data } = await sb.auth.getSession()
-      if (!data.session) throw new Error('Sign in again to search for shops.')
-      const res = await fetch(`${apiUrl}/v1/shops`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${data.session.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label, lat: region.lat, lon: region.lon }),
-      })
-      const body = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error((body as { detail?: string }).detail ?? `Shop search returned ${res.status}`)
-      return body as ShopResult
+      return (await callApi('/v1/shops', { label, lat: region.lat, lon: region.lon })) as ShopResult
+    },
+
+    async getGuide(plant, region) {
+      return (await callApi('/v1/guide', { plant, place: placeForPrompt(region), lat: region.lat, lon: region.lon })) as GuideResult
     },
 
     subscribe({ onCapture, onDevice, onState }) {

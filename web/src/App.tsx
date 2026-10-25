@@ -10,9 +10,18 @@ import { FieldLog } from './screens/FieldLog'
 import { Live } from './screens/Live'
 import { Login } from './screens/Login'
 import { RoverScreen } from './screens/Rover'
+import { Grow } from './screens/Grow'
 
-const TAB_HASH: Record<Tab, string> = { live: '#/live', log: '#/log', rover: '#/rover' }
-const tabFromHash = (): Tab => (window.location.hash === '#/log' ? 'log' : window.location.hash === '#/rover' ? 'rover' : 'live')
+const TAB_HASH: Record<Tab, string> = { live: '#/live', log: '#/log', grow: '#/grow', rover: '#/rover' }
+const tabFromHash = (): Tab => {
+  const h = window.location.hash
+  return h === '#/log' ? 'log' : h === '#/rover' ? 'rover' : h.startsWith('#/grow') ? 'grow' : 'live'
+}
+/** "#/grow/okra" → "okra" */
+const plantFromHash = (): string | null => {
+  const m = window.location.hash.match(/^#\/grow\/(.+)$/)
+  return m ? decodeURIComponent(m[1]) : null
+}
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined)
@@ -46,10 +55,12 @@ function Console({ session }: { session: Session }) {
   const region = useRegion(source)
   const now = useNow(1000)
   const [tab, setTab] = useState<Tab>(tabFromHash)
+  const [plant, setPlant] = useState<string | null>(plantFromHash)
 
   useEffect(() => {
     const onHash = () => {
       setTab(tabFromHash())
+      setPlant(plantFromHash())
       window.scrollTo({ top: 0 })
     }
     window.addEventListener('hashchange', onHash)
@@ -99,6 +110,7 @@ function Console({ session }: { session: Session }) {
       <main className="mx-auto mt-5 max-w-6xl px-4">
         {tab === 'live' && <Live model={model} source={source} region={region} onOpenRover={() => go('rover')} />}
         {tab === 'log' && <FieldLog model={model} source={source} />}
+        {tab === 'grow' && <Grow key={plant ?? ''} source={source} region={region} initialPlant={plant} />}
         {tab === 'rover' && <RoverScreen model={model} source={source} session={session} region={region} />}
       </main>
       <div className="lg:hidden">

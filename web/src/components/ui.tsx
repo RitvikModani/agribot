@@ -198,11 +198,12 @@ export function TruthLine({ truth, predicted }: { truth: LabelKey; predicted: La
   )
 }
 
-export type Tab = 'live' | 'log' | 'rover'
+export type Tab = 'live' | 'log' | 'grow' | 'rover'
 
 const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'live', label: 'Live', icon: ScanLine },
   { id: 'log', label: 'Field log', icon: BookOpen },
+  { id: 'grow', label: 'Grow', icon: Sprout },
   { id: 'rover', label: 'Rover', icon: Radio },
 ]
 
@@ -212,7 +213,7 @@ export function Nav({ tab, onTab, docked }: { tab: Tab; onTab: (t: Tab) => void;
       aria-label="Sections"
       className={
         docked
-          ? 'soil-band safe-bottom fixed inset-x-0 bottom-0 z-20 grid grid-cols-3 gap-1 border-t border-cream/10 px-2 pt-2'
+          ? 'soil-band safe-bottom fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 gap-1 border-t border-cream/10 px-2 pt-2'
           : 'flex gap-1.5'
       }
     >

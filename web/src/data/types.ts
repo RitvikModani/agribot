@@ -1,6 +1,7 @@
 import type { LabelKey } from '../lib/labels'
 import type { Verdict } from '../lib/status'
 import type { Region } from '../lib/weather'
+import type { GuideResult } from '../lib/guide'
 
 export interface Capture {
   id: string
@@ -78,6 +79,8 @@ export interface DataSource {
   saveRegion(r: Region): Promise<void>
   /** Real nearby shops for a disease's remedy; null when this source can't search (Replay). */
   findShops(label: LabelKey, region: Region): Promise<ShopResult | null>
+  /** A grow guide for this plant in this region; null when this source can't ask (Replay). */
+  getGuide(plant: string, region: Region): Promise<GuideResult | null>
 }
 
 export interface ShopResult {
