@@ -1,0 +1,12 @@
+[
+  {"index": 0, "key": "bacterial_spot", "name": "Bacterial Spot", "plantvillage": "Tomato___Bacterial_spot"},
+  {"index": 1, "key": "early_blight", "name": "Early Blight", "plantvillage": "Tomato___Early_blight"},
+  {"index": 2, "key": "healthy", "name": "Healthy", "plantvillage": "Tomato___healthy"},
+  {"index": 3, "key": "late_blight", "name": "Late Blight", "plantvillage": "Tomato___Late_blight"},
+  {"index": 4, "key": "leaf_mold", "name": "Leaf Mold", "plantvillage": "Tomato___Leaf_Mold"},
+  {"index": 5, "key": "mosaic_virus", "name": "Mosaic Virus", "plantvillage": "Tomato___Tomato_mosaic_virus"},
+  {"index": 6, "key": "septoria_leaf_spot", "name": "Septoria Leaf Spot", "plantvillage": "Tomato___Septoria_leaf_spot"},
+  {"index": 7, "key": "spider_mites", "name": "Spider Mites", "plantvillage": "Tomato___Spider_mites Two-spotted_spider_mite"},
+  {"index": 8, "key": "target_spot", "name": "Target Spot", "plantvillage": "Tomato___Target_Spot"},
+  {"index": 9, "key": "yellow_leaf_curl_virus", "name": "Yellow Leaf Curl Virus", "plantvillage": "Tomato___Tomato_Yellow_Leaf_Curl_Virus"}
+]

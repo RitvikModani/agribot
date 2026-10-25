@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+.venv*/
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Secrets — never commit real values; .env.example files are the templates
+.env
+.env.*
+!.env.example
+
+# Local data
+*.log
+model/data/

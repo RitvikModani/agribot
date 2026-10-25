@@ -29,6 +29,7 @@ Replace the old laptop-bound pipeline (ESP32-CAM → Apps Script → Drive + She
 | `/stream` blocked the single-threaded web server | ESP32 local web UI removed; dashboard is the only UI |
 | `p<millis>.jpg` filenames collide after reboot | Device-generated UUIDv4 capture IDs, idempotent on server |
 | Bluetooth drive keeps last command forever on link loss | HC-05 STATE-pin failsafe (§6.2) |
+| Model has no "not a leaf" answer; the 151 v1 captures were rooms/ceilings, all called blight (found in `model/EVAL.md`) | Leaf check + `verdict` (§6.3); AWB warm-up frames (§6.1) |
 
 ## 3. Scope
 
@@ -70,6 +71,7 @@ Hosting: API on a **public** Hugging Face Space (Docker SDK, port 7860) — it m
 
 - Board: AI-Thinker ESP32-CAM (pins as in v1). Arduino core for ESP32.
 - Camera: `FRAMESIZE_VGA` (640×480), `jpeg_quality = 12`, frame buffer in PSRAM, `fb_count = 2`, `CAMERA_GRAB_LATEST`. Abort with LED error code if `psramFound()` is false.
+- White balance: auto white balance and exposure on; discard 5 frames after init and 1 stale frame before every capture, so AWB has settled (v1 frames show the OV2640's yellow-green start-up tint).
 - Provisioning: WiFiManager captive portal **"AgriBot-Setup"**, opened on first boot (no saved config) or on a **double reset** (RST pressed twice within 3 s, detected with an NVS flag). GPIO 0 is not used as a trigger: holding it low at reset enters the bootloader, and the AI-Thinker board has no BOOT button once off the programmer. Custom fields: API base URL, device token. Values persisted in NVS via `Preferences`. Nothing configurable lives in source.
 - TLS: `WiFiClientSecure` with the API host's root CA embedded as PEM in `ca_cert.h` (public data, not a secret). The implementation records which CA and its expiry in `docs/firmware.md`.
 - Main loop:
@@ -94,7 +96,7 @@ Hosting: API on a **public** Hugging Face Space (Docker SDK, port 7860) — it m
 
 Python 3.11, FastAPI, `onnxruntime`, `Pillow`, `numpy`, `httpx` (Supabase REST + Storage). Model loaded once at startup.
 
-**Config (HF Space secrets/variables):** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `MODEL_PATH`, `MODEL_VERSION` (e.g. `tomato-tm-v1`), `LOW_CONFIDENCE_THRESHOLD` (default `0.6`).
+**Config (HF Space secrets/variables):** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `MODEL_PATH`, `MODEL_VERSION` (`tomato-tm-v1`), `LOW_CONFIDENCE_THRESHOLD` (default `0.6`), `MIN_LEAF_FRACTION` (default `0.10`).
 
 **Device auth:** header `X-Device-Token`. Look up `sha256_hex(token)` in `devices.token_hash`; cache hits for 60 s. Unknown → 401. `revoked_at` set → 403.
 
@@ -105,11 +107,12 @@ Python 3.11, FastAPI, `onnxruntime`, `Pillow`, `numpy`, `httpx` (Supabase REST +
 4. Idempotency: if a capture with this ID exists for this device, return 200 with the stored result.
 5. Preprocess: EXIF transpose → RGB → `ImageOps.fit(img, (224, 224), Image.LANCZOS)` (centre crop) → `float32` → `x / 127.5 − 1` → shape `[1, 224, 224, 3]`.
 6. Infer with ONNX; softmax output of 10 classes; take top 3.
-7. Upload image to Storage bucket `captures` at `{owner_id}/{device_id}/{capture_id}.jpg`.
-8. Read `device_state.plant_tag`; insert `captures` row.
-9. If `X-Trigger: manual`, set `device_state.capture_requested_at = null`.
-10. Respond 201: `{ "id", "label", "confidence", "low_confidence", "top3": [{"label", "confidence"}] }`.
-11. Storage or DB failure → 503 (device retries with the same ID).
+7. Leaf check: `leaf_fraction` = share of plant-coloured pixels (hue 25–160°, saturation ≥ 0.20, value ≥ 0.15) after grey-world white balance on the 224×224 crop. Verdict: `no_leaf` if `leaf_fraction < MIN_LEAF_FRACTION` (0.10), else `uncertain` if confidence < 0.6, else `confident`. Same function as `model/preprocess.leaf_fraction`.
+8. Upload image to Storage bucket `captures` at `{owner_id}/{device_id}/{capture_id}.jpg`.
+9. Read `device_state.plant_tag`; insert `captures` row.
+10. If `X-Trigger: manual`, set `device_state.capture_requested_at = null`.
+11. Respond 201: `{ "id", "label", "confidence", "verdict", "leaf_fraction", "top3": [{"label", "confidence"}] }`.
+12. Storage or DB failure → 503 (device retries with the same ID).
 
 **`GET /v1/device/state`** → 200 `{ "capture_requested_at": ISO8601|null, "patrol_on": bool, "patrol_interval_s": int, "server_time": ISO8601 }`. Updates `devices.last_seen_at` (at most once per 5 s per device).
 
@@ -164,6 +167,8 @@ captures(
                                        'mosaic_virus','septoria_leaf_spot','spider_mites','target_spot',
                                        'yellow_leaf_curl_virus')),
   confidence real not null check (confidence between 0 and 1),
+  verdict text not null check (verdict in ('confident','uncertain','no_leaf')),
+  leaf_fraction real not null check (leaf_fraction between 0 and 1),
   top3 jsonb not null,
   model_version text not null,
   plant_tag text
@@ -191,7 +196,7 @@ React 19 + Vite + TypeScript + Tailwind v4 + `vite-plugin-pwa` + `@supabase/supa
   - rover status: online if `last_seen_at` < 10 s ago, else "offline · last seen <relative time>".
   - **Capture** button → `update device_state set capture_requested_at = now()`; shows "requested, not received" if still non-null after 15 s.
   - Patrol toggle + interval (3–300 s); plant-tag text field.
-  - latest result card: image (signed URL, 10 min expiry), label, confidence bar, remedy text, **"Uncertain — retake"** badge instead of the remedy when `confidence < 0.6`.
+  - latest result card: image (signed URL, 10 min expiry), label, confidence bar, remedy text. By `verdict`: `confident` → label + remedy; `uncertain` → **"Uncertain — retake"** instead of the remedy; `no_leaf` → **"No leaf in frame"**, no label shown.
   - live feed of recent captures via Realtime `INSERT` subscription.
 - **History:** paginated list, filter by label and plant tag, delete capture (row + image).
 - **Device:** name, last seen, **New token** (calls `rotate_device_token`, shows token once with copy button), **Revoke**.
@@ -204,7 +209,8 @@ React 19 + Vite + TypeScript + Tailwind v4 + `vite-plugin-pwa` + `@supabase/supa
 | Hotspot drops | ESP32 reconnects; reboots after 60 s down. Dashboard shows offline after 10 s without `last_seen_at`. Requests older than 30 s are ignored on reconnect. |
 | Space cold | ESP32 HTTP timeout 20 s, then retry policy (§6.1). Runbook wakes the Space the day before. |
 | Upload fails after 3 tries | LED failure code; dashboard shows "requested, not received". |
-| Low confidence (< 0.6) | Result stored; dashboard shows "Uncertain — retake" instead of a remedy. Non-tomato leaves land here. |
+| Not a leaf (leaf fraction < 0.10) | Result stored with `verdict = no_leaf`; dashboard shows "No leaf in frame". |
+| Low confidence (< 0.6) | Result stored with `verdict = uncertain`; dashboard shows "Uncertain — retake" instead of a remedy. |
 | Invalid image | 413 / 415 / 422; logged; no retry. |
 | Revoked or unknown token | 401 / 403; LED code; polling backs off to 30 s. |
 | Storage/DB down | 503; device retries with same capture ID; idempotency prevents duplicates. |
@@ -249,4 +255,4 @@ React 19 + Vite + TypeScript + Tailwind v4 + `vite-plugin-pwa` + `@supabase/supa
 
 ## 12. Deck truth pass
 
-Update slides so every claim matches this system: cloud architecture (not "no internet"); 10 tomato disease classes (not "healthy or diseased" or "14 crops"); accuracy numbers from `eval.py` with their source; real prototype photos in slide 6; accurate credit for the drive firmware's origin and for anyone who helped.
+Update slides so every claim matches this system: cloud architecture (not "no internet"); 10 tomato disease classes (not "healthy or diseased" or "14 crops"); accuracy numbers from `model/EVAL.md` with their source (78.5% lab sample, no field accuracy yet); v1 captures were indoor bench tests, so "verified on a test plot" goes unless a real plot run happens; real prototype photos in slide 6; accurate credit for the drive firmware's origin and for anyone who helped.
