@@ -40,7 +40,12 @@ export default defineConfig({
     }),
   ],
   server: {
+    // Listen on IPv4 and IPv6, and on the LAN: 127.0.0.1 works, and a phone on the same Wi-Fi can open it.
+    host: true,
     fs: { strict: false },
+  },
+  preview: {
+    host: true,
   },
   test: {
     environment: 'node',
