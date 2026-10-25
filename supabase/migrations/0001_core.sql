@@ -141,6 +141,18 @@ end $$;
 revoke all on function public.rotate_device_token(uuid) from public, anon;
 grant execute on function public.rotate_device_token(uuid) to authenticated;
 
+-- Capture requests use the server clock: the rover ignores requests older than 30 s,
+-- so a phone with a skewed clock must not be the one stamping them.
+create or replace function public.request_capture(p_device_id uuid) returns timestamptz
+language sql security invoker set search_path = '' as $$
+  update public.device_state
+     set capture_requested_at = now()
+   where device_id = p_device_id and owner = (select auth.uid())
+  returning capture_requested_at;
+$$;
+revoke all on function public.request_capture(uuid) from public, anon;
+grant execute on function public.request_capture(uuid) to authenticated;
+
 -- ───────────────────────────── storage ─────────────────────────────
 -- Private bucket; objects live at {owner}/{device}/{capture}.jpg.
 

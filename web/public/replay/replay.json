@@ -1,0 +1,255 @@
+[
+ {
+  "file": "00-late_blight.jpg",
+  "label": "late_blight",
+  "confidence": 0.9735,
+  "verdict": "confident",
+  "leaf_fraction": 0.3547,
+  "top3": [
+   {
+    "label": "late_blight",
+    "confidence": 0.9735
+   },
+   {
+    "label": "early_blight",
+    "confidence": 0.0224
+   },
+   {
+    "label": "target_spot",
+    "confidence": 0.0037
+   }
+  ],
+  "truth": "late_blight",
+  "source": "PlantVillage dataset (lab photo)"
+ },
+ {
+  "file": "01-healthy.jpg",
+  "label": "healthy",
+  "confidence": 0.983,
+  "verdict": "confident",
+  "leaf_fraction": 0.155,
+  "top3": [
+   {
+    "label": "healthy",
+    "confidence": 0.983
+   },
+   {
+    "label": "target_spot",
+    "confidence": 0.008
+   },
+   {
+    "label": "spider_mites",
+    "confidence": 0.0033
+   }
+  ],
+  "truth": "healthy",
+  "source": "PlantVillage dataset (lab photo)"
+ },
+ {
+  "file": "02-early_blight.jpg",
+  "label": "early_blight",
+  "confidence": 0.9299,
+  "verdict": "confident",
+  "leaf_fraction": 0.2001,
+  "top3": [
+   {
+    "label": "early_blight",
+    "confidence": 0.9299
+   },
+   {
+    "label": "septoria_leaf_spot",
+    "confidence": 0.0512
+   },
+   {
+    "label": "late_blight",
+    "confidence": 0.0066
+   }
+  ],
+  "truth": "early_blight",
+  "source": "PlantVillage dataset (lab photo)"
+ },
+ {
+  "file": "03-bench.jpg",
+  "label": "late_blight",
+  "confidence": 0.9671,
+  "verdict": "no_leaf",
+  "leaf_fraction": 0.0367,
+  "top3": [
+   {
+    "label": "late_blight",
+    "confidence": 0.9671
+   },
+   {
+    "label": "early_blight",
+    "confidence": 0.0327
+   },
+   {
+    "label": "leaf_mold",
+    "confidence": 0.0001
+   }
+  ],
+  "truth": null,
+  "source": "AgriBot v1 bench capture (indoor)"
+ },
+ {
+  "file": "04-target_spot.jpg",
+  "label": "target_spot",
+  "confidence": 0.9995,
+  "verdict": "confident",
+  "leaf_fraction": 0.262,
+  "top3": [
+   {
+    "label": "target_spot",
+    "confidence": 0.9995
+   },
+   {
+    "label": "healthy",
+    "confidence": 0.0003
+   },
+   {
+    "label": "early_blight",
+    "confidence": 0.0001
+   }
+  ],
+  "truth": "target_spot",
+  "source": "PlantVillage dataset (lab photo)"
+ },
+ {
+  "file": "05-bacterial_spot.jpg",
+  "label": "bacterial_spot",
+  "confidence": 0.619,
+  "verdict": "confident",
+  "leaf_fraction": 0.3742,
+  "top3": [
+   {
+    "label": "bacterial_spot",
+    "confidence": 0.619
+   },
+   {
+    "label": "early_blight",
+    "confidence": 0.1821
+   },
+   {
+    "label": "late_blight",
+    "confidence": 0.0844
+   }
+  ],
+  "truth": "bacterial_spot",
+  "source": "PlantVillage dataset (lab photo)"
+ },
+ {
+  "file": "06-leaf_mold.jpg",
+  "label": "leaf_mold",
+  "confidence": 0.991,
+  "verdict": "confident",
+  "leaf_fraction": 0.2736,
+  "top3": [
+   {
+    "label": "leaf_mold",
+    "confidence": 0.991
+   },
+   {
+    "label": "mosaic_virus",
+    "confidence": 0.0089
+   },
+   {
+    "label": "septoria_leaf_spot",
+    "confidence": 0.0
+   }
+  ],
+  "truth": "leaf_mold",
+  "source": "PlantVillage dataset (lab photo)"
+ },
+ {
+  "file": "07-yellow_leaf_curl_virus.jpg",
+  "label": "yellow_leaf_curl_virus",
+  "confidence": 0.8565,
+  "verdict": "confident",
+  "leaf_fraction": 0.2804,
+  "top3": [
+   {
+    "label": "yellow_leaf_curl_virus",
+    "confidence": 0.8565
+   },
+   {
+    "label": "mosaic_virus",
+    "confidence": 0.1394
+   },
+   {
+    "label": "leaf_mold",
+    "confidence": 0.0019
+   }
+  ],
+  "truth": "yellow_leaf_curl_virus",
+  "source": "PlantVillage dataset (lab photo)"
+ },
+ {
+  "file": "08-septoria_leaf_spot.jpg",
+  "label": "septoria_leaf_spot",
+  "confidence": 0.7697,
+  "verdict": "confident",
+  "leaf_fraction": 0.2805,
+  "top3": [
+   {
+    "label": "septoria_leaf_spot",
+    "confidence": 0.7697
+   },
+   {
+    "label": "leaf_mold",
+    "confidence": 0.193
+   },
+   {
+    "label": "mosaic_virus",
+    "confidence": 0.0325
+   }
+  ],
+  "truth": "septoria_leaf_spot",
+  "source": "PlantVillage dataset (lab photo)"
+ },
+ {
+  "file": "09-mosaic_virus.jpg",
+  "label": "mosaic_virus",
+  "confidence": 0.971,
+  "verdict": "confident",
+  "leaf_fraction": 0.2634,
+  "top3": [
+   {
+    "label": "mosaic_virus",
+    "confidence": 0.971
+   },
+   {
+    "label": "spider_mites",
+    "confidence": 0.0274
+   },
+   {
+    "label": "septoria_leaf_spot",
+    "confidence": 0.0012
+   }
+  ],
+  "truth": "mosaic_virus",
+  "source": "PlantVillage dataset (lab photo)"
+ },
+ {
+  "file": "10-spider_mites.jpg",
+  "label": "spider_mites",
+  "confidence": 0.9999,
+  "verdict": "confident",
+  "leaf_fraction": 0.2539,
+  "top3": [
+   {
+    "label": "spider_mites",
+    "confidence": 0.9999
+   },
+   {
+    "label": "healthy",
+    "confidence": 0.0
+   },
+   {
+    "label": "mosaic_virus",
+    "confidence": 0.0
+   }
+  ],
+  "truth": "spider_mites",
+  "source": "PlantVillage dataset (lab photo)"
+ }
+]

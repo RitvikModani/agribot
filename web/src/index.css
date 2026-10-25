@@ -1,0 +1,133 @@
+@import 'tailwindcss';
+
+/* AgriBot "field instrument" tokens — see web/DESIGN.md */
+@theme {
+  --color-soil: #0b0d08;
+  --color-bed: #13160e;
+  --color-furrow: #2b3122;
+  --color-bone: #eef2e3;
+  --color-stalk: #a3aa92;
+  --color-chlorophyll: #c8f031;
+  --color-rust: #ff6a2b;
+  --color-pollen: #f2c94c;
+
+  --font-sans: 'Archivo Variable', system-ui, sans-serif;
+  --font-display: 'Archivo Variable', 'Arial Narrow', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Mono', monospace;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    background: var(--color-soil);
+  }
+  body {
+    min-height: 100dvh;
+    background: var(--color-soil);
+    color: var(--color-bone);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-chlorophyll);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--color-chlorophyll);
+    color: var(--color-soil);
+  }
+}
+
+.condensed {
+  font-stretch: 62.5%;
+}
+.semi-condensed {
+  font-stretch: 82%;
+}
+
+/* Telemetry ticker */
+.ticker-track {
+  animation: marquee 45s linear infinite;
+}
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Replay warning stripe */
+.hazard {
+  background: repeating-linear-gradient(-45deg, var(--color-pollen) 0 12px, var(--color-soil) 12px 24px);
+}
+
+/* Camera viewport: rule-of-thirds grid, corner brackets, scan sweep */
+.frame-grid {
+  background-image:
+    linear-gradient(to right, rgb(238 242 227 / 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(238 242 227 / 0.07) 1px, transparent 1px);
+  background-size: 33.333% 33.333%;
+}
+.bracket {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border: 0 solid var(--color-chlorophyll);
+}
+.bracket-tl { top: 10px; left: 10px; border-top-width: 3px; border-left-width: 3px; }
+.bracket-tr { top: 10px; right: 10px; border-top-width: 3px; border-right-width: 3px; }
+.bracket-bl { bottom: 10px; left: 10px; border-bottom-width: 3px; border-left-width: 3px; }
+.bracket-br { bottom: 10px; right: 10px; border-bottom-width: 3px; border-right-width: 3px; }
+
+.scan-sweep {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  animation: sweep 1.5s ease-in-out infinite alternate;
+}
+.scan-sweep::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 3px;
+  background: var(--color-chlorophyll);
+  box-shadow: 0 0 22px 6px rgb(200 240 49 / 0.4);
+}
+@keyframes sweep {
+  from { transform: translateY(2%); }
+  to { transform: translateY(97%); }
+}
+
+/* Verdict lands like a rubber stamp */
+.stamp {
+  animation: stamp 190ms cubic-bezier(0.2, 0.9, 0.3, 1.35) both;
+  transform-origin: left bottom;
+  transform: rotate(-2deg);
+}
+@keyframes stamp {
+  from { transform: scale(1.4) rotate(-6deg); opacity: 0; }
+  to { transform: scale(1) rotate(-2deg); opacity: 1; }
+}
+
+.pulse-dot {
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% { opacity: 0.3; }
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track,
+  .scan-sweep,
+  .stamp,
+  .pulse-dot {
+    animation: none !important;
+  }
+  .scan-sweep {
+    transform: translateY(50%);
+  }
+}
