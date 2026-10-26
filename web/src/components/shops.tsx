@@ -45,7 +45,7 @@ export function WhereToBuy({ label, region, source }: { label: LabelKey; region:
             </button>
           )}
           {state.kind === 'done' && <ShopList result={state.result} />}
-          {state.kind === 'unavailable' && <p className="text-[13px] text-bark">In-app shop search needs the live backend. Use the Google Maps search below.</p>}
+          {state.kind === 'unavailable' && <p className="text-[13px] text-bark">In-app shop names aren't switched on here. The Google Maps search below finds them.</p>}
           {state.kind === 'error' && (
             <p className="text-[13px] font-semibold text-terracotta" role="alert">
               {state.message}

@@ -130,6 +130,13 @@ def test_shops_not_configured_is_503(store, classifier, clock):
     assert ask(client).status_code == 503
 
 
+def test_maps_grounding_can_be_switched_off(monkeypatch):
+    monkeypatch.setenv("MAPS_GROUNDING", "off")
+    assert Settings.from_env().maps_grounding is False
+    monkeypatch.delenv("MAPS_GROUNDING")
+    assert Settings.from_env().maps_grounding is True
+
+
 def test_cors_allows_the_dashboard(shop_client):
     client, _ = shop_client
     r = client.options("/v1/shops", headers={"Origin": "http://localhost:5288", "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "authorization,content-type"})

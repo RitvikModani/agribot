@@ -195,7 +195,7 @@ def create_app(store: Store, classifier: Classifier, settings: Settings,
         if req.label not in INGREDIENTS:
             raise HTTPException(422, "label must be a disease with a treatment")
         if shops is None:
-            raise HTTPException(503, "shop search isn't set up (GEMINI_API_KEY missing)")
+            raise HTTPException(503, "in-app shop search isn't switched on (needs a billed Gemini key)")
         now = clock()
         key = (req.label, round(req.lat, 2), round(req.lon, 2))
 
@@ -257,7 +257,7 @@ def build_app() -> FastAPI:
     else:
         from .supabase_store import SupabaseStore
         store = SupabaseStore(settings.supabase_url, settings.supabase_service_role_key)
-    shops = GeminiShops(settings.gemini_api_key, settings.gemini_model) if settings.gemini_api_key else None
+    shops = GeminiShops(settings.gemini_api_key, settings.gemini_model) if settings.gemini_api_key and settings.maps_grounding else None
     user_auth = (SupabaseUserAuth(settings.supabase_url, settings.supabase_service_role_key)
                  if settings.supabase_url and settings.supabase_service_role_key else None)
     guides = GeminiGuides(settings.gemini_api_key, settings.gemini_model) if settings.gemini_api_key else None

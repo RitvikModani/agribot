@@ -17,6 +17,8 @@ class Settings:
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.8-flash"
     allowed_origins: tuple[str, ...] = ("http://localhost:5288",)
+    # Maps grounding is paid-tier only; set MAPS_GROUNDING=off on a free (no billing) Gemini key.
+    maps_grounding: bool = True
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -31,4 +33,5 @@ class Settings:
             gemini_api_key=env.get("GEMINI_API_KEY", ""),
             gemini_model=env.get("GEMINI_MODEL", cls.gemini_model),
             allowed_origins=tuple(o.strip() for o in env.get("ALLOWED_ORIGINS", ",".join(cls.allowed_origins)).split(",") if o.strip()),
+            maps_grounding=env.get("MAPS_GROUNDING", "on").strip().lower() != "off",
         )

@@ -167,7 +167,13 @@ export function createSupabaseSource(url: string, anonKey: string, apiUrl: strin
     },
 
     async findShops(label, region) {
-      return (await callApi('/v1/shops', { label, lat: region.lat, lon: region.lon })) as ShopResult
+      try {
+        return (await callApi('/v1/shops', { label, lat: region.lat, lon: region.lon })) as ShopResult
+      } catch (e) {
+        // 503 = switched off (no billing): show the Maps link quietly instead of an error.
+        if (e instanceof Error && e.message.includes("isn't switched on")) return null
+        throw e
+      }
     },
 
     async getGuide(plant, region) {
