@@ -24,7 +24,7 @@ export function WhereToBuy({ label, region, source }: { label: LabelKey; region:
   }
 
   return (
-    <div className="mt-3 space-y-3 rounded-xl bg-card p-3 ring-1 ring-line">
+    <div className="mt-3 space-y-3 rounded-2xl bg-card p-3 ring-1 ring-line">
       <Label icon={Store}>Where to buy</Label>
       <p className="text-[14px] text-bark">
         Look for <span className="font-semibold text-soil">{ingredients.join(', ')}</span>.
@@ -38,7 +38,7 @@ export function WhereToBuy({ label, region, source }: { label: LabelKey; region:
               type="button"
               onClick={() => void search(region)}
               disabled={state.kind === 'loading'}
-              className="clay flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-moss font-semibold text-cream disabled:cursor-wait"
+              className="clay flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-moss font-semibold text-cream disabled:cursor-wait"
             >
               <MapPinned className="size-4" aria-hidden="true" />
               {state.kind === 'loading' ? 'Asking Google Maps…' : `Find shops near ${region.placeName}`}
@@ -47,7 +47,7 @@ export function WhereToBuy({ label, region, source }: { label: LabelKey; region:
           {state.kind === 'done' && <ShopList result={state.result} />}
           {state.kind === 'unavailable' && <p className="text-[13px] text-bark">In-app shop names aren't switched on here. The Google Maps search below finds them.</p>}
           {state.kind === 'error' && (
-            <p className="text-[13px] font-semibold text-terracotta" role="alert">
+            <p className="text-[13px] font-semibold text-terracotta-ink" role="alert">
               {state.message}
             </p>
           )}
