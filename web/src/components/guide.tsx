@@ -2,6 +2,7 @@ import { CalendarDays, Droplets, Flower2, Grid3x3, Layers, Leaf, Lightbulb, Shie
 import { monthRanges, type GuideResult } from '../lib/guide'
 import type { Region } from '../lib/weather'
 import { Label, Panel } from './ui'
+import { WaveBand } from './verdeo'
 
 const SUITABILITY = {
   good: { text: 'Grows well here', className: 'bg-sprout-tint text-loam' },
@@ -16,7 +17,7 @@ export function GuideCard({ result, region }: { result: GuideResult; region: Reg
   if (!g.recognized) {
     return (
       <Panel>
-        <p className="display text-2xl font-bold">That doesn't look like a plant we can grow.</p>
+        <p className="display text-2xl font-semibold">That doesn't look like a plant we can grow.</p>
         <p className="mt-1 text-bark">Try a crop or garden plant name, like okra or marigold.</p>
       </Panel>
     )
@@ -31,34 +32,43 @@ export function GuideCard({ result, region }: { result: GuideResult; region: Reg
       <Panel className="relative space-y-3 overflow-hidden">
         <Flower2 className="pointer-events-none absolute -right-6 -top-6 size-36 text-moss/[0.07]" aria-hidden="true" />
         <Label icon={Leaf}>Grow guide · {region.placeName}</Label>
-        <h2 className="display text-5xl font-bold leading-none">{g.common_name}</h2>
-        {g.scientific_name && <p className="display text-lg italic text-bark">{g.scientific_name}</p>}
+        <h2 className="display text-5xl font-semibold leading-none">{g.common_name}</h2>
+        {g.scientific_name && <p className="accent text-lg text-bark">{g.scientific_name}</p>}
         <span className={`inline-block rounded-full px-3 py-1 text-[13px] font-bold ${fit.className}`}>{fit.text}</span>
         <p className="text-[15px] leading-relaxed">{g.suitability_reason}</p>
       </Panel>
 
-      <Panel className="space-y-3">
-        <Label icon={CalendarDays}>Your year</Label>
-        <div className="flex h-24 items-end gap-1" role="img" aria-label={`Sow in ${monthRanges(g.sow_months ?? [])}; bars show average monthly rain`}>
-          {result.climate.map((n) => (
-            <div key={n.month} className="flex flex-1 flex-col items-center justify-end">
-              <div className={`w-full rounded-t-md ${sow.has(n.month) ? 'bg-moss' : 'bg-line'}`} style={{ height: `${Math.max(4, (n.rain / maxRain) * 80)}px` }} />
-            </div>
-          ))}
+      <WaveBand>
+        <div className="space-y-3">
+          <div>
+            <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold tracking-[0.08em]">
+              <CalendarDays className="size-3.5" aria-hidden="true" /> Your year
+            </span>
+            <h3 className="display text-2xl font-semibold">
+              When to <span className="accent">sow</span>
+            </h3>
+          </div>
+          <div className="flex h-24 items-end gap-1" role="img" aria-label={`Sow in ${monthRanges(g.sow_months ?? [])}; bars show average monthly rain`}>
+            {result.climate.map((n) => (
+              <div key={n.month} className="flex flex-1 flex-col items-center justify-end">
+                <div className={`w-full rounded-t-md ${sow.has(n.month) ? 'bg-cream' : 'bg-cream/35'}`} style={{ height: `${Math.max(4, (n.rain / maxRain) * 80)}px` }} />
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-1">
+            {result.climate.map((n, i) => (
+              <div key={n.month} className={`flex-1 text-center text-[11px] ${sow.has(n.month) ? 'font-bold underline underline-offset-2' : ''}`}>
+                {MONTH_LETTERS[i]}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Fact label="Sow" value={monthRanges(g.sow_months ?? [])} />
+            <Fact label="Harvest after" value={harvest ?? '—'} />
+          </div>
+          <p className="text-[12px]">Bars: average monthly rain over 10 years. Solid bars and underlined months: sow then.</p>
         </div>
-        <div className="flex gap-1">
-          {result.climate.map((n, i) => (
-            <div key={n.month} className={`flex-1 text-center text-[11px] ${sow.has(n.month) ? 'font-bold text-moss' : 'text-bark'}`}>
-              {MONTH_LETTERS[i]}
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Fact label="Sow" value={monthRanges(g.sow_months ?? [])} />
-          <Fact label="Harvest after" value={harvest ?? '—'} />
-        </div>
-        <p className="text-[12px] text-bark">Bars: average monthly rain over 10 years. Green: sowing months.</p>
-      </Panel>
+      </WaveBand>
 
       <Panel className="grid gap-3 sm:grid-cols-2">
         <Care icon={Sun} label="Sunlight" text={g.sunlight} />
@@ -112,9 +122,9 @@ export function GuideCard({ result, region }: { result: GuideResult; region: Reg
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-inset px-3 py-2">
-      <div className="text-[11px] font-semibold uppercase tracking-widest text-bark">{label}</div>
-      <div className="display text-xl font-bold">{value}</div>
+    <div className="rounded-2xl bg-cream/10 px-3 py-2">
+      <div className="text-[12px] font-semibold tracking-[0.08em]">{label}</div>
+      <div className="display text-xl font-semibold">{value}</div>
     </div>
   )
 }
@@ -122,7 +132,7 @@ function Fact({ label, value }: { label: string; value: string }) {
 function Care({ icon: Icon, label, text }: { icon: typeof Sun; label: string; text?: string }) {
   if (!text) return null
   return (
-    <div className="rounded-xl bg-inset p-3">
+    <div className="rounded-2xl bg-inset p-3">
       <Label icon={Icon}>{label}</Label>
       <p className="mt-1 text-[15px] leading-relaxed">{text}</p>
     </div>

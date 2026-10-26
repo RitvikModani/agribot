@@ -5,6 +5,7 @@ import type { RoverModel } from '../hooks/useRover'
 import { LABEL_NAME, REMEDY, REMEDY_FOOTER } from '../lib/labels'
 import { clockTime, verdictView, type Tone } from '../lib/status'
 import { ConfidenceBlocks, Label, LeafMeter, Panel, ScanFrame, Top3, TruthLine, VerdictStamp, toneBlock, useImageUrl } from '../components/ui'
+import { Sprig } from '../components/verdeo'
 
 type Filter = 'all' | Tone
 
@@ -33,10 +34,12 @@ export function FieldLog({ model, source }: { model: RoverModel; source: DataSou
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <Label icon={BookOpen}>Specimen notebook</Label>
-          <h1 className="display mt-1 text-5xl font-bold leading-none">Field log</h1>
+          <h1 className="display mt-1 text-5xl font-semibold leading-none">
+            Field <span className="accent">log</span>
+          </h1>
         </div>
         <p className="text-[15px] text-bark">
-          {counts.all} specimens · <span className="font-semibold text-terracotta">{counts.disease} diseased</span> ·{' '}
+          {counts.all} specimens · <span className="font-semibold text-terracotta-ink">{counts.disease} diseased</span> ·{' '}
           <span className="font-semibold text-moss">{counts.healthy} healthy</span>
         </p>
       </header>
@@ -49,7 +52,7 @@ export function FieldLog({ model, source }: { model: RoverModel; source: DataSou
             onClick={() => setFilter(f.id)}
             aria-pressed={filter === f.id}
             className={`min-h-11 cursor-pointer rounded-full px-4 text-[14px] font-semibold transition-colors duration-150 ${
-              filter === f.id ? 'bg-soil text-cream' : 'bg-card text-bark ring-1 ring-line hover:text-soil'
+              filter === f.id ? 'bg-loam text-cream' : 'bg-card text-bark ring-1 ring-line hover:text-soil'
             }`}
           >
             {f.label} <span className="ml-0.5 tabular-nums opacity-70">{counts[f.id]}</span>
@@ -58,14 +61,15 @@ export function FieldLog({ model, source }: { model: RoverModel; source: DataSou
       </div>
 
       {shown.length === 0 ? (
-        <Panel>
-          <p className="display text-xl italic text-bark">No specimens here yet.</p>
+        <Panel className="flex items-center justify-between gap-4">
+          <p className="accent text-xl text-bark">No specimens here yet.</p>
+          <Sprig variant="spray" className="h-24 shrink-0" />
         </Panel>
       ) : (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {shown.map((c, i) => (
+          {shown.map((c) => (
             <li key={c.id}>
-              <Tile capture={c} source={source} tilt={i % 3 === 0 ? '-rotate-[0.6deg]' : i % 3 === 1 ? 'rotate-[0.5deg]' : ''} onOpen={() => setOpen(c)} />
+              <Tile capture={c} source={source} onOpen={() => setOpen(c)} />
             </li>
           ))}
         </ul>
@@ -75,7 +79,7 @@ export function FieldLog({ model, source }: { model: RoverModel; source: DataSou
         <button
           type="button"
           onClick={async () => setMore(await model.appendOlder())}
-          className="clay h-12 w-full cursor-pointer rounded-xl bg-inset font-semibold text-soil [--lip:var(--color-line)]"
+          className="clay h-12 w-full cursor-pointer rounded-full bg-inset font-semibold text-soil [--lip:var(--color-line)]"
         >
           Load older specimens
         </button>
@@ -96,17 +100,17 @@ export function FieldLog({ model, source }: { model: RoverModel; source: DataSou
   )
 }
 
-function Tile({ capture, source, tilt, onOpen }: { capture: Capture; source: DataSource; tilt: string; onOpen: () => void }) {
+function Tile({ capture, source, onOpen }: { capture: Capture; source: DataSource; onOpen: () => void }) {
   const src = useImageUrl(source, capture.imagePath)
   const view = verdictView(capture)
   const name = view.tone === 'none' ? 'No leaf' : view.tone === 'uncertain' ? 'Unsure' : view.headline
   return (
-    <button type="button" onClick={onOpen} className={`paper group block w-full cursor-pointer p-2 text-left transition-transform duration-200 hover:-translate-y-0.5 hover:rotate-0 ${tilt}`}>
-      <div className="aspect-square overflow-hidden rounded-[0.8rem] bg-inset">
+    <button type="button" onClick={onOpen} className="organic group block w-full cursor-pointer bg-card p-2 text-left ring-1 ring-line transition-transform duration-200 hover:-translate-y-0.5">
+      <div className="aspect-square overflow-hidden rounded-[22px_12px_26px_10px] bg-inset">
         {src && <img src={src} alt={view.headline} loading="lazy" className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />}
       </div>
       <div className="mt-2 px-1">
-        <span className={`inline-block rounded-md px-2 py-0.5 text-[12px] font-bold ${toneBlock[view.tone]}`}>{name}</span>
+        <span className={`inline-block rounded-full px-2.5 py-0.5 text-[12px] font-bold ${toneBlock[view.tone]}`}>{name}</span>
         <div className="mt-1 flex justify-between font-mono text-[11px] text-bark">
           <span className="truncate">{capture.plantTag ?? '—'}</span>
           <span>{clockTime(capture.createdAt).slice(0, 5)}</span>
@@ -127,8 +131,8 @@ function Detail({ capture, source, onClose, onDelete }: { capture: Capture; sour
   }, [onClose])
 
   return (
-    <div className="fixed inset-0 z-30 overflow-y-auto bg-soil/70 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-label="Specimen detail" onClick={onClose}>
-      <div className="mx-auto max-w-xl space-y-4 rounded-[1.5rem] bg-paper p-4 pb-6 shadow-[0_6px_0_rgb(51_36_26/0.3)]" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-30 overflow-y-auto bg-soil/60 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-label="Specimen detail" onClick={onClose}>
+      <div className="mx-auto max-w-xl space-y-4 rounded-[2rem] bg-paper p-4 pb-6 shadow-[0_6px_0_rgb(58_52_40/0.25)]" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <Label>
             {new Date(capture.createdAt).toLocaleString()} {capture.plantTag ? `· ${capture.plantTag}` : ''}
@@ -149,8 +153,8 @@ function Detail({ capture, source, onClose, onDelete }: { capture: Capture; sour
           {capture.verdict !== 'no_leaf' && <Top3 items={capture.top3} />}
           {capture.truth && <TruthLine truth={capture.truth} predicted={capture.label} />}
           {view.showRemedy && (
-            <div className={`rounded-xl p-4 ${capture.label === 'healthy' ? 'bg-sprout/20' : 'bg-terracotta/10'}`}>
-              <Label className={capture.label === 'healthy' ? 'text-moss' : 'text-terracotta'}>
+            <div className={`rounded-2xl p-4 ${capture.label === 'healthy' ? 'bg-sprout/20' : 'bg-terracotta/10'}`}>
+              <Label className={capture.label === 'healthy' ? 'text-moss' : 'text-terracotta-ink'}>
                 {capture.label === 'healthy' ? 'Care' : `Treatment · ${LABEL_NAME[capture.label]}`}
               </Label>
               <p className="mt-1.5 leading-relaxed">{REMEDY[capture.label]}</p>
@@ -162,8 +166,8 @@ function Detail({ capture, source, onClose, onDelete }: { capture: Capture; sour
         <button
           type="button"
           onClick={() => (armed ? onDelete() : setArmed(true))}
-          className={`flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl font-semibold transition-colors ${
-            armed ? 'bg-terracotta text-cream' : 'bg-card text-bark ring-1 ring-line hover:text-terracotta hover:ring-terracotta'
+          className={`flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-full font-semibold transition-colors ${
+            armed ? 'bg-terracotta text-cream' : 'bg-card text-bark ring-1 ring-line hover:text-terracotta-ink hover:ring-terracotta'
           }`}
         >
           <Trash2 className="size-4" aria-hidden="true" />

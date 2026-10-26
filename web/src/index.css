@@ -66,12 +66,6 @@
   border-radius: 28px 18px 32px 16px;
 }
 
-/* Soil band with faint terrain contour lines */
-.soil-band {
-  background-color: var(--color-soil);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='120' fill='none' stroke='%23fbf5e7' stroke-opacity='.07' stroke-width='1.2'%3E%3Cpath d='M0 20c40-14 80 14 120 0s80-14 120 0 80 14 120 0'/%3E%3Cpath d='M0 44c40-14 80 14 120 0s80-14 120 0 80 14 120 0'/%3E%3Cpath d='M0 68c40-14 80 14 120 0s80-14 120 0 80 14 120 0'/%3E%3Cpath d='M0 92c40-14 80 14 120 0s80-14 120 0 80 14 120 0'/%3E%3Cpath d='M0 116c40-14 80 14 120 0s80-14 120 0 80 14 120 0'/%3E%3C/svg%3E");
-  color: var(--color-cream);
-}
 
 /* Card on cream: hairline border, barely-there lift */
 .paper {

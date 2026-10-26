@@ -5,6 +5,7 @@ import type { RegionModel } from '../hooks/useRegion'
 import { isPlantName, QUICK_PICKS, type GuideResult } from '../lib/guide'
 import { GuideCard } from '../components/guide'
 import { Label, Panel } from '../components/ui'
+import { Sprig } from '../components/verdeo'
 
 type State = { kind: 'idle' } | { kind: 'loading'; plant: string } | { kind: 'done'; result: GuideResult } | { kind: 'unavailable' } | { kind: 'error'; message: string }
 
@@ -42,9 +43,12 @@ export function Grow({ source, region, initialPlant }: { source: DataSource; reg
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
-      <header>
+      <header className="relative pr-20">
+        <Sprig className="absolute -top-2 right-0 h-28" />
         <Label icon={Sprout}>Grow guides</Label>
-        <h1 className="display mt-1 text-5xl font-bold leading-none">What will you grow?</h1>
+        <h1 className="display mt-1 text-5xl font-semibold leading-none">
+          What will you <span className="accent">grow?</span>
+        </h1>
         <p className="mt-2 text-bark">{r ? `Advice for ${r.placeName}, worked out from its real 10-year climate.` : 'Set your region first so the advice fits your weather.'}</p>
       </header>
 
@@ -63,10 +67,10 @@ export function Grow({ source, region, initialPlant }: { source: DataSource; reg
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search any plant: okra, curry leaf, rose…"
                 maxLength={40}
-                className="h-13 w-full rounded-xl border-[1.5px] border-line bg-card pl-11 pr-4 text-base focus:border-moss focus:outline-none"
+                className="h-13 w-full rounded-full border-[1.5px] border-line bg-card pl-11 pr-4 text-base focus:border-moss focus:outline-none"
               />
             </label>
-            <button type="submit" disabled={state.kind === 'loading'} className="clay h-13 cursor-pointer rounded-xl bg-moss px-5 font-semibold text-cream disabled:cursor-wait">
+            <button type="submit" disabled={state.kind === 'loading'} className="clay h-13 cursor-pointer rounded-full bg-moss px-6 font-semibold text-cream disabled:cursor-wait">
               Guide me
             </button>
           </form>
@@ -83,14 +87,14 @@ export function Grow({ source, region, initialPlant }: { source: DataSource; reg
             ))}
           </div>
 
-          {state.kind === 'loading' && <p className="display text-xl italic text-bark">Reading {r?.placeName}'s seasons for {state.plant}…</p>}
+          {state.kind === 'loading' && <p className="accent text-xl text-bark">Reading {r?.placeName}'s seasons for {state.plant}…</p>}
           {state.kind === 'unavailable' && (
             <Panel>
               <p className="text-bark">Grow guides need the live backend (Supabase + the API with a Gemini key). REPLAY mode can't write them.</p>
             </Panel>
           )}
           {state.kind === 'error' && (
-            <p className="rounded-xl bg-terracotta/10 px-4 py-2 font-semibold text-terracotta ring-1 ring-terracotta/40" role="alert">
+            <p className="rounded-2xl bg-terracotta/10 px-4 py-2 font-semibold text-terracotta-ink ring-1 ring-terracotta/40" role="alert">
               {state.message}
             </p>
           )}
