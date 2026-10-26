@@ -9,12 +9,12 @@ export const toneBlock: Record<Tone, string> = {
   healthy: 'bg-sprout-tint text-loam',
   disease: 'bg-terracotta text-cream',
   uncertain: 'bg-ochre text-soil',
-  none: 'bg-cream text-bark ring-1 ring-bark/40',
+  none: 'bg-card text-bark ring-1 ring-line',
 }
 /** Tone as text on paper. */
 export const toneText: Record<Tone, string> = {
   healthy: 'text-moss',
-  disease: 'text-terracotta',
+  disease: 'text-terracotta-ink',
   uncertain: 'text-ochre-deep',
   none: 'text-bark',
 }
@@ -41,10 +41,11 @@ export function useImageUrl(source: DataSource, path: string | undefined): strin
   return url
 }
 
-export function Label({ children, icon: Icon, className = '' }: { children: ReactNode; icon?: LucideIcon; className?: string }) {
+/** Eyebrow above a heading: a small glyph (a sprout unless given) and spaced sentence-case text. */
+export function Label({ children, icon: Icon = Sprout, className = '' }: { children: ReactNode; icon?: LucideIcon; className?: string }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-bark ${className}`}>
-      {Icon && <Icon className="size-3.5" aria-hidden="true" />}
+    <span className={`inline-flex items-center gap-1.5 text-[12px] font-semibold tracking-[0.08em] text-bark ${className}`}>
+      <Icon className="size-3.5" aria-hidden="true" />
       {children}
     </span>
   )
@@ -57,7 +58,7 @@ export function Panel({ children, className = '' }: { children: ReactNode; class
 export function Ticker({ items }: { items: string[] }) {
   const line = items.join('   ·   ')
   return (
-    <div className="overflow-hidden whitespace-nowrap border-b border-cream/10 font-mono text-[12px] uppercase tracking-wider text-cream/70">
+    <div className="overflow-hidden whitespace-nowrap bg-loam font-mono text-[11px] tracking-wide text-cream">
       <div className="ticker-track inline-flex">
         <span className="px-4 py-1.5">{line}</span>
         <span className="px-4 py-1.5" aria-hidden="true">
@@ -81,57 +82,60 @@ export function ReplayBanner() {
 export function StatusChip({ online }: { online: boolean }) {
   return (
     <span
-      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[12px] font-semibold uppercase tracking-wider ${
-        online ? 'bg-sprout-tint text-loam' : 'bg-cream text-bark ring-1 ring-bark/30'
+      className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] font-semibold ${
+        online ? 'bg-sprout-tint text-loam' : 'text-bark ring-1 ring-bark/40'
       }`}
     >
-      <span className={`size-2 rounded-full ${online ? 'pulse-dot bg-moss-deep' : 'bg-bark/60'}`} aria-hidden="true" />
+      <span className={`size-2 rounded-full ${online ? 'pulse-dot bg-moss' : 'bg-bark/60'}`} aria-hidden="true" />
       {online ? 'Online' : 'Offline'}
     </span>
   )
 }
 
-/** The camera viewport, framed like a mounted specimen. */
+/** The camera viewport: the whole frame, soft corners, nothing cropped by decoration. */
 export function ScanFrame({ src, alt, scanning, children }: { src?: string; alt: string; scanning: boolean; children?: ReactNode }) {
   return (
-    <div className="paper p-2.5">
-      <div className="relative aspect-square w-full overflow-hidden rounded-[0.9rem] bg-inset">
-        {src ? (
-          <img src={src} alt={alt} className="size-full object-cover" />
-        ) : (
-          <div className="grid size-full place-items-center text-bark">
-            <div className="flex flex-col items-center gap-2">
-              <Sprout className="size-10" aria-hidden="true" />
-              <span className="display text-xl italic">No frame yet</span>
-            </div>
+    <div className="relative aspect-square w-full overflow-hidden rounded-[1.5rem] bg-inset ring-1 ring-line">
+      {src ? (
+        <img src={src} alt={alt} className="size-full object-cover" />
+      ) : (
+        <div className="grid size-full place-items-center text-moss">
+          <div className="flex flex-col items-center gap-2">
+            <Sprout className="size-10" aria-hidden="true" />
+            <span className="accent text-xl text-bark">No frame yet</span>
           </div>
-        )}
-        {(['tl', 'tr', 'bl', 'br'] as const).map((c) => (
-          <span key={c} className={`bracket bracket-${c}`} aria-hidden="true" />
-        ))}
-        {scanning && <div className="scan-sweep" aria-hidden="true" />}
-        {children}
-      </div>
+        </div>
+      )}
+      {scanning && <div className="scan-sweep" aria-hidden="true" />}
+      {children}
     </div>
   )
+}
+
+/** Stamp ink per tone, on a card-coloured tag. */
+const STAMP_INK: Record<Tone, string> = {
+  healthy: 'text-moss',
+  disease: 'text-terracotta-ink',
+  uncertain: 'text-ochre-deep',
+  none: 'text-bark',
 }
 
 /** The verdict as a botanical specimen label, stamped onto the photo. */
 export function VerdictStamp({ view, id, createdAt }: { view: VerdictView; id: string; createdAt: string }) {
   return (
-    <div key={id} className={`specimen inline-block max-w-[92%] rounded-xl p-1 shadow-[0_4px_0_rgb(51_36_26/0.35)] ${toneBlock[view.tone]}`}>
+    <div key={id} className={`specimen inline-block max-w-[92%] rounded-2xl border-[1.5px] border-current bg-card p-1 shadow-[0_3px_0_rgb(58_52_40/0.25)] ${STAMP_INK[view.tone]}`}>
       <div className="specimen-inner px-3 py-1.5">
-        <div className="font-mono text-[10px] uppercase tracking-[0.2em] opacity-80">
+        <div className="font-mono text-[10px] uppercase tracking-[0.2em]">
           Specimen {id.slice(0, 4)} · {clockTime(createdAt).slice(0, 5)}
         </div>
-        <div className="display text-[clamp(1.7rem,7.5vw,3.2rem)] font-bold leading-[0.98]">{view.headline}</div>
+        <div className="display text-[clamp(1.7rem,7.5vw,3.2rem)] font-semibold leading-[0.98]">{view.headline}</div>
       </div>
     </div>
   )
 }
 
 /** Confidence as a row of ten seeds. */
-export function ConfidenceBlocks({ value, tone }: { value: number; tone: Tone }) {
+export function ConfidenceBlocks({ value }: { value: number }) {
   const filled = confidenceBlocks(value)
   return (
     <div className="flex items-center gap-3">
@@ -144,10 +148,10 @@ export function ConfidenceBlocks({ value, tone }: { value: number; tone: Tone })
         aria-valuenow={Math.round(value * 100)}
       >
         {Array.from({ length: 10 }, (_, i) => (
-          <span key={i} className={`h-4 flex-1 rounded-full ${i < filled ? toneFill[tone] : 'bg-inset ring-1 ring-inset ring-line'}`} />
+          <span key={i} className={`h-3.5 flex-1 rounded-full ${i < filled ? 'bg-moss' : 'bg-inset ring-1 ring-inset ring-line'}`} />
         ))}
       </div>
-      <span className="display w-16 text-right text-3xl font-bold tabular-nums">{pct(value)}</span>
+      <span className="display w-16 text-right text-3xl font-semibold tabular-nums">{pct(value)}</span>
     </div>
   )
 }
@@ -191,7 +195,7 @@ export function Top3({ items }: { items: { label: LabelKey; confidence: number }
 export function TruthLine({ truth, predicted }: { truth: LabelKey; predicted: LabelKey }) {
   const hit = truth === predicted
   return (
-    <p className={`flex items-center gap-1.5 text-[13px] font-semibold ${hit ? 'text-moss' : 'text-terracotta'}`}>
+    <p className={`flex items-center gap-1.5 text-[13px] font-semibold ${hit ? 'text-moss' : 'text-terracotta-ink'}`}>
       {hit ? <Check className="size-4" aria-hidden="true" /> : <X className="size-4" aria-hidden="true" />}
       Ground truth: {LABEL_NAME[truth]} {hit ? '· model correct' : '· model wrong'}
     </p>
@@ -213,7 +217,7 @@ export function Nav({ tab, onTab, docked }: { tab: Tab; onTab: (t: Tab) => void;
       aria-label="Sections"
       className={
         docked
-          ? 'soil-band safe-bottom fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 gap-1 border-t border-cream/10 px-2 pt-2'
+          ? 'safe-bottom fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 gap-1 border-t border-line bg-paper/95 px-2 pt-2 backdrop-blur'
           : 'flex gap-1.5'
       }
     >
@@ -225,9 +229,9 @@ export function Nav({ tab, onTab, docked }: { tab: Tab; onTab: (t: Tab) => void;
             type="button"
             onClick={() => onTab(id)}
             aria-current={active ? 'page' : undefined}
-            className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-xl text-[12px] font-semibold uppercase tracking-wider transition-colors duration-150 ${
-              docked ? 'mb-2 min-h-13 flex-col' : 'min-h-10 px-4'
-            } ${active ? 'bg-sprout-tint text-loam' : 'text-cream/75 hover:bg-cream/10 hover:text-cream'}`}
+            className={`flex cursor-pointer items-center justify-center gap-1.5 text-[13px] font-semibold transition-colors duration-150 ${
+              docked ? 'mb-2 min-h-13 flex-col rounded-2xl' : 'min-h-10 rounded-full px-4'
+            } ${active ? 'bg-sprout-tint text-loam' : 'text-bark hover:bg-inset hover:text-soil'}`}
           >
             <Icon className="size-5" aria-hidden="true" />
             {label}

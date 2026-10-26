@@ -38,13 +38,13 @@ export default function App() {
 
 function Wordmark() {
   return (
-    <span className="flex items-center gap-2">
-      <span className="grid size-10 place-items-center rounded-full bg-sprout-tint text-loam">
-        <Sprout className="size-6" aria-hidden="true" />
+    <span className="flex items-center gap-2.5">
+      <span className="grid size-10 place-items-center rounded-full text-moss ring-1 ring-moss/50">
+        <Sprout className="size-5" aria-hidden="true" />
       </span>
       <span className="leading-none">
-        <span className="display block text-[2rem] font-bold italic">AgriBot</span>
-        <span className="block font-mono text-[10px] uppercase tracking-[0.25em] text-cream/60">Field journal</span>
+        <span className="display block text-[1.75rem] font-semibold text-soil">AgriBot</span>
+        <span className="mt-0.5 block text-[11px] tracking-[0.08em] text-bark">Field companion</span>
       </span>
     </span>
   )
@@ -90,20 +90,18 @@ function Console({ session }: { session: Session }) {
   return (
     <div className="min-h-dvh pb-24 lg:pb-10">
       {source.kind === 'replay' && <ReplayBanner />}
-      <div className="soil-band rounded-b-[1.75rem] pb-4 shadow-[0_4px_0_rgb(51_36_26/0.18)]">
-        <Ticker items={ticker} />
-        <header className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 pt-3">
-          <a href="#/live" onClick={() => go('live')} aria-label="AgriBot home">
-            <Wordmark />
-          </a>
-          <div className="hidden lg:block">
-            <Nav tab={tab} onTab={go} docked={false} />
-          </div>
-          {rover && <StatusChip online={online} />}
-        </header>
-      </div>
+      <Ticker items={ticker} />
+      <header className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 pt-4">
+        <a href="#/live" onClick={() => go('live')} aria-label="AgriBot home">
+          <Wordmark />
+        </a>
+        <div className="hidden lg:block">
+          <Nav tab={tab} onTab={go} docked={false} />
+        </div>
+        {rover && <StatusChip online={online} />}
+      </header>
       {model.error && (
-        <p role="alert" className="mx-auto mt-4 max-w-6xl rounded-xl bg-terracotta/10 px-4 py-2 text-sm font-semibold text-terracotta ring-1 ring-terracotta/40">
+        <p role="alert" className="mx-auto mt-4 max-w-6xl rounded-2xl bg-terracotta/10 px-4 py-2 text-sm font-semibold text-terracotta-ink ring-1 ring-terracotta/40">
           {model.error}
         </p>
       )}

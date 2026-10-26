@@ -173,7 +173,7 @@ function Diagnosis({
         <h2 className={`display mt-1 text-5xl font-bold leading-[1.02] ${toneText[view.tone]}`}>{view.headline}</h2>
         <p className="mt-1.5 text-bark">{view.detail}</p>
       </div>
-      {capture.verdict !== 'no_leaf' && <ConfidenceBlocks value={capture.confidence} tone={view.tone} />}
+      {capture.verdict !== 'no_leaf' && <ConfidenceBlocks value={capture.confidence} />}
       <LeafMeter value={capture.leafFraction} />
       {capture.verdict !== 'no_leaf' && (
         <div>

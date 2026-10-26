@@ -144,7 +144,7 @@ function Detail({ capture, source, onClose, onDelete }: { capture: Capture; sour
         </ScanFrame>
         <Panel className="space-y-5">
           <p className="text-bark">{view.detail}</p>
-          {capture.verdict !== 'no_leaf' && <ConfidenceBlocks value={capture.confidence} tone={view.tone} />}
+          {capture.verdict !== 'no_leaf' && <ConfidenceBlocks value={capture.confidence} />}
           <LeafMeter value={capture.leafFraction} />
           {capture.verdict !== 'no_leaf' && <Top3 items={capture.top3} />}
           {capture.truth && <TruthLine truth={capture.truth} predicted={capture.label} />}

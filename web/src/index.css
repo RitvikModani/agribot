@@ -106,19 +106,7 @@
   background: repeating-linear-gradient(-45deg, var(--color-ochre) 0 12px, var(--color-soil) 12px 24px);
 }
 
-/* Specimen viewport: corner ticks and a scan sweep */
-.bracket {
-  position: absolute;
-  width: 24px;
-  height: 24px;
-  border: 0 solid var(--color-cream);
-  filter: drop-shadow(0 1px 1px rgb(51 36 26 / 0.5));
-}
-.bracket-tl { top: 12px; left: 12px; border-top-width: 3px; border-left-width: 3px; border-top-left-radius: 8px; }
-.bracket-tr { top: 12px; right: 12px; border-top-width: 3px; border-right-width: 3px; border-top-right-radius: 8px; }
-.bracket-bl { bottom: 12px; left: 12px; border-bottom-width: 3px; border-left-width: 3px; border-bottom-left-radius: 8px; }
-.bracket-br { bottom: 12px; right: 12px; border-bottom-width: 3px; border-right-width: 3px; border-bottom-right-radius: 8px; }
-
+/* Specimen viewport: an ochre scan line sweeps while a capture is in flight */
 .scan-sweep {
   position: absolute;
   inset: 0;
