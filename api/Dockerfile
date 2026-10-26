@@ -13,4 +13,5 @@ COPY --chown=agribot model ./model
 USER agribot
 ENV PYTHONUNBUFFERED=1 MODEL_PATH=model/agribot_tomato_v1.onnx
 EXPOSE 7860
-CMD ["uvicorn", "app.main:build_app", "--factory", "--host", "0.0.0.0", "--port", "7860", "--proxy-headers"]
+# Render sets $PORT; Hugging Face Spaces expect 7860.
+CMD ["sh", "-c", "exec uvicorn app.main:build_app --factory --host 0.0.0.0 --port ${PORT:-7860} --proxy-headers --forwarded-allow-ips='*'"]
