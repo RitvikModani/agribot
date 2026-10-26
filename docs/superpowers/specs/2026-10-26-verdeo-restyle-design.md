@@ -37,10 +37,12 @@ Token names stay; values change. Components keep their classes.
 | `sprout-tint` | new | `#DDE2C8` | pills and chips that hold text: active tab, healthy chip, online pill, "Grows well here" | loam 6.4:1 |
 | `terracotta` | `#a64a24` | `#A0532F` | disease fills (pills, tags) | cream 4.8:1 |
 | `terracotta-ink` | new | `#8E4527` | disease text, stamp ink | 6.5:1 on card |
-| `ochre` | `#c08a2b` | `#C9963A` | scan line, focus ring, uncertain fills; never text | — |
+| `ochre` | `#c08a2b` | `#C9963A` | scan line (on photos), uncertain fills behind `soil` text; never text, never a graphic on paper (2.3:1) | soil on it ≥ 4.5:1 |
 | `ochre-deep` | `#8a5f17` | unchanged | uncertain text | — |
 
 Every `bg-sprout text-soil` pair (today in `ui.tsx`, `App.tsx`, `Login.tsx`, `guide.tsx`) moves to `bg-sprout-tint text-loam`, because soil on the new mid green is only 3.4:1.
+
+The keyboard focus ring moves from `ochre` to `loam` (deep sage), which is visible on every light surface.
 
 Removed: the paper-grain body background and the contour-line `.soil-band` texture.
 
@@ -68,7 +70,7 @@ Removed: the paper-grain body background and the contour-line `.soil-band` textu
 ## 5. New Verdeo pieces
 
 - **Wave band (`WaveBand` component):** an SVG wave edge top and bottom around a `moss` section. At most one per screen:
-  - Live: the disease-pressure and spray-window block.
+  - Live: the disease-pressure block (split out of the weather card). The spray window stays in the treatment section, where you act on it.
   - Grow: the guide's climate strip and sowing months.
   - Rover: the region's 12-month climate chart.
   - Field Log, Login: none.
@@ -93,7 +95,7 @@ Removed: the paper-grain body background and the contour-line `.soil-band` textu
 
 ## 7. Testing
 
-- New `tests/contrast.test.ts`: parses the `@theme` block in `index.css` and asserts the text pairs in section 1 meet 4.5:1, and `sprout` and `ochre` meet 3:1 against paper, card and inset as graphics. It also fails if any source file still pairs `bg-sprout` with text (`text-soil`, `text-loam`).
+- New `tests/contrast.test.ts`: parses the `@theme` block in `index.css` and asserts the text pairs in section 1 meet 4.5:1, and `sprout` and `moss` meet 3:1 against paper, card and inset as graphics. It also fails if any source file still pairs `bg-sprout` with text (`text-soil`, `text-loam`).
 - New `tests/captureSteps.test.ts`: the step state function for no capture / in flight / healthy / diseased / no leaf / uncertain.
 - Existing 26 tests pass; `tsc -b` and `vite build` are clean.
 - Visual check in the browser pane at 375 px and 1280 px for every screen, in replay mode and live mode, with reduced motion on; screenshots sent to Ritvik.
