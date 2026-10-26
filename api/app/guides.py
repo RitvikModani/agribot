@@ -2,11 +2,16 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from typing import Protocol
 
 import httpx
 
+log = logging.getLogger("agribot")
+TIMEOUT_S = 30.0
+# Never let a key or a Google Cloud project number ride along in an error shown to the user.
+_SECRETS = re.compile(r"AIza[\w-]{20,}|projects/\d+")
 PLANT_RE = re.compile(r"^[^\W\d_]+(?:[ '\-][^\W\d_]+)*$")
 PLACE_RE = re.compile(r"^[^\W\d_]+(?:[ ,'\-.]+[^\W\d_]+)*$")
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -41,7 +46,29 @@ REQUIRED_WHEN_RECOGNIZED = [k for k in GUIDE_SCHEMA["properties"] if k != "recog
 
 
 class GuideError(Exception):
-    """Gemini failed or returned something that isn't a valid guide."""
+    """Gemini failed or returned something that isn't a valid guide. The message is shown to the user, so no secrets."""
+
+
+def gemini_failure(r: httpx.Response, model: str) -> str:
+    """Why a Gemini call failed, in words safe to show: HTTP status, Google's status name, what to check."""
+    try:
+        body = r.json()
+    except ValueError:
+        body = None
+    err = body.get("error") if isinstance(body, dict) else None
+    err = err if isinstance(err, dict) else {}
+    status = f"HTTP {r.status_code}" + (f" {err['status']}" if isinstance(err.get("status"), str) else "")
+    if r.status_code in (401, 403):
+        return f"Gemini refused the API key ({status}). Check GEMINI_API_KEY on the server."
+    if r.status_code == 404:
+        return f"Gemini doesn't offer model '{model}' ({status}). Check GEMINI_MODEL on the server."
+    if r.status_code == 429:
+        return (f"Gemini quota or rate limit hit ({status}). If it keeps happening, this model may have "
+                "no free tier: try a Flash-Lite GEMINI_MODEL.")
+    if r.status_code >= 500:
+        return f"Gemini is having trouble ({status}). Try again in a minute."
+    message = _SECRETS.sub("[redacted]", str(err.get("message", "")))[:160]
+    return f"Gemini rejected the request ({status})" + (f": {message}" if message else ".")
 
 
 class GuideWriter(Protocol):
@@ -78,35 +105,44 @@ def build_guide_prompt(plant: str, place: str, normals: list[dict], month: int) 
 
 
 def parse_guide(interaction: dict) -> dict:
+    status = interaction.get("status")
+    if status not in (None, "completed"):
+        raise GuideError(f"Gemini stopped before finishing (status '{str(status)[:30]}').")
     text = "".join(
         block.get("text", "")
         for step in interaction.get("steps") or [] if step.get("type") == "model_output"
         for block in step.get("content") or [] if block.get("type") == "text"
     )
+    if not text.strip():
+        raise GuideError("Gemini's reply had no text in it.")
     try:
         guide = json.loads(text)
     except ValueError as exc:
-        raise GuideError("guide was not valid JSON") from exc
+        raise GuideError("Gemini's reply wasn't valid JSON.") from exc
     if not isinstance(guide, dict) or not isinstance(guide.get("recognized"), bool):
-        raise GuideError("guide is missing 'recognized'")
+        raise GuideError("Gemini's reply is missing 'recognized'.")
     if not guide["recognized"]:
         return {"recognized": False}
     missing = [k for k in REQUIRED_WHEN_RECOGNIZED if k not in guide]
     if missing:
-        raise GuideError(f"guide is missing {missing}")
+        raise GuideError(f"Gemini's reply is missing {', '.join(missing)}.")
     if guide["suitability"] not in ("good", "possible", "poor"):
-        raise GuideError("bad suitability")
-    if not all(isinstance(m, int) and 1 <= m <= 12 for m in guide["sow_months"]):
-        raise GuideError("bad sow_months")
+        raise GuideError("Gemini's reply had a bad suitability.")
+    months = guide["sow_months"]
+    if not isinstance(months, list) or not all(isinstance(m, int) and 1 <= m <= 12 for m in months):
+        raise GuideError("Gemini's reply had bad sow_months.")
     guide["steps"] = guide["steps"][:6]
     return guide
 
 
 class GeminiGuides:
-    def __init__(self, api_key: str, model: str, timeout: float = 60.0) -> None:
+    def __init__(self, api_key: str, model: str, timeout: float = TIMEOUT_S,
+                 transport: httpx.BaseTransport | None = None) -> None:
         self._model = model
-        self._http = httpx.Client(base_url="https://generativelanguage.googleapis.com",
-                                  headers={"x-goog-api-key": api_key, "Content-Type": "application/json"}, timeout=timeout)
+        self._timeout = timeout
+        self._http = httpx.Client(base_url="https://generativelanguage.googleapis.com", transport=transport,
+                                  headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
+                                  timeout=httpx.Timeout(timeout, connect=10.0))
 
     def find(self, plant: str, place: str, normals: list[dict]) -> dict:
         import datetime as dt
@@ -118,8 +154,17 @@ class GeminiGuides:
         }
         try:
             r = self._http.post("/v1beta/interactions", json=body)
+        except httpx.TimeoutException as exc:
+            raise GuideError(f"Gemini didn't answer within {self._timeout:.0f} s.") from exc
         except httpx.HTTPError as exc:
-            raise GuideError(f"Gemini unreachable: {exc}") from exc
+            raise GuideError(f"Couldn't reach Gemini ({type(exc).__name__}).") from exc
         if r.status_code >= 400:
-            raise GuideError(f"Gemini HTTP {r.status_code}: {r.text[:200]}")
-        return parse_guide(r.json())
+            log.warning("gemini HTTP %s: %s", r.status_code, r.text[:500])  # full detail stays in the server log
+            raise GuideError(gemini_failure(r, self._model))
+        try:
+            return parse_guide(r.json())
+        except ValueError as exc:  # body itself wasn't JSON
+            raise GuideError("Gemini's reply wasn't JSON.") from exc
+        except GuideError:
+            log.warning("unusable gemini reply: %s", r.text[:1000])
+            raise

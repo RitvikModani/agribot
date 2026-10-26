@@ -37,8 +37,9 @@ def monthly_normals(archive: dict) -> list[dict]:
 
 
 class OpenMeteoClimate:
-    def __init__(self, ttl: float = 30 * 86_400) -> None:
-        self._http = httpx.Client(base_url="https://archive-api.open-meteo.com", timeout=40)
+    def __init__(self, ttl: float = 30 * 86_400, timeout: float = 20.0, transport: httpx.BaseTransport | None = None) -> None:
+        self._http = httpx.Client(base_url="https://archive-api.open-meteo.com", timeout=timeout, transport=transport)
+        self._timeout = timeout
         self._ttl = ttl
         self._cache: dict[tuple[float, float], tuple[float, list[dict]]] = {}
 
@@ -54,7 +55,12 @@ class OpenMeteoClimate:
             r = self._http.get("/v1/archive", params=params)
             r.raise_for_status()
             result = monthly_normals(r.json())
+        # Messages are shown to the user: say what failed, not the full URL.
+        except httpx.TimeoutException as exc:
+            raise ClimateError(f"Open-Meteo's climate archive didn't answer within {self._timeout:.0f} s.") from exc
+        except httpx.HTTPStatusError as exc:
+            raise ClimateError(f"Open-Meteo's climate archive failed (HTTP {exc.response.status_code}).") from exc
         except (httpx.HTTPError, KeyError, ValueError) as exc:
-            raise ClimateError(f"climate archive failed: {exc}") from exc
+            raise ClimateError(f"Open-Meteo's climate archive failed ({type(exc).__name__}).") from exc
         self._cache[key] = (time.monotonic() + self._ttl, result)
         return result

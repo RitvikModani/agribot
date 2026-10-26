@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import json
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from app.climate import monthly_normals
+from app.climate import ClimateError, OpenMeteoClimate, monthly_normals
 from app.config import Settings
-from app.guides import GuideError, build_guide_prompt, normalize_plant, parse_guide
+from app.guides import GeminiGuides, GuideError, build_guide_prompt, gemini_failure, normalize_plant, parse_guide
 from app.main import create_app
 
 USER_TOKEN = "user-jwt"
@@ -65,6 +66,77 @@ def test_parse_guide_rejects_malformed(bad):
         parse_guide(interaction(bad))
 
 
+def test_parse_guide_names_an_unfinished_interaction():
+    with pytest.raises(GuideError, match="in_progress"):
+        parse_guide({"status": "in_progress", "steps": []})
+
+
+def test_parse_guide_names_an_empty_reply():
+    with pytest.raises(GuideError, match="no text"):
+        parse_guide({"status": "completed", "steps": [{"type": "thought"}]})
+
+
+def gemini_error(code: int, status: str = "", message: str = "") -> httpx.Response:
+    return httpx.Response(code, json={"error": {"code": code, "status": status, "message": message}})
+
+
+@pytest.mark.parametrize("code,status,expect", [
+    (403, "PERMISSION_DENIED", "GEMINI_API_KEY"),
+    (404, "NOT_FOUND", "GEMINI_MODEL"),
+    (429, "RESOURCE_EXHAUSTED", "HTTP 429 RESOURCE_EXHAUSTED"),
+    (503, "UNAVAILABLE", "having trouble"),
+])
+def test_gemini_failure_names_the_cause(code, status, expect):
+    assert expect in gemini_failure(gemini_error(code, status), "gemini-x")
+
+
+def test_gemini_failure_never_echoes_keys_or_project_numbers():
+    body = gemini_error(400, "INVALID_ARGUMENT", "bad schema; key AIzaSyA1234567890abcdefghijklmnop in projects/123456789")
+    reason = gemini_failure(body, "gemini-x")
+    assert "INVALID_ARGUMENT" in reason and "bad schema" in reason
+    assert "AIza" not in reason and "123456789" not in reason
+
+
+def test_gemini_failure_survives_a_non_json_body():
+    assert "HTTP 502" in gemini_failure(httpx.Response(502, text="<html>bad gateway</html>"), "gemini-x")
+
+
+def gemini(handler) -> GeminiGuides:
+    return GeminiGuides("test-key", "gemini-x", timeout=1, transport=httpx.MockTransport(handler))
+
+
+def test_gemini_timeout_says_so():
+    def hang(request):
+        raise httpx.ReadTimeout("timed out", request=request)
+
+    with pytest.raises(GuideError, match="didn't answer within 1 s"):
+        gemini(hang).find("tomato", "Warangal", NORMALS)
+
+
+def test_gemini_http_error_becomes_a_safe_reason():
+    with pytest.raises(GuideError, match="HTTP 429") as caught:
+        gemini(lambda request: gemini_error(429, "RESOURCE_EXHAUSTED", "quota")).find("tomato", "Warangal", NORMALS)
+    assert "test-key" not in str(caught.value)
+
+
+def test_gemini_happy_path_sends_key_in_header():
+    seen = {}
+
+    def reply(request):
+        seen["key"] = request.headers["x-goog-api-key"]
+        seen["url"] = str(request.url)
+        return httpx.Response(200, json={"status": "completed", **interaction(json.dumps(GUIDE))})
+
+    assert gemini(reply).find("tomato", "Warangal", NORMALS)["common_name"] == "Tomato"
+    assert seen["key"] == "test-key" and "test-key" not in seen["url"]
+
+
+def test_climate_failure_is_named():
+    climate = OpenMeteoClimate(transport=httpx.MockTransport(lambda request: httpx.Response(429)))
+    with pytest.raises(ClimateError, match="HTTP 429"):
+        climate.normals(17.9, 79.5)
+
+
 class FakeGuides:
     def __init__(self):
         self.calls = 0
@@ -119,3 +191,14 @@ def test_guide_returns_climate_and_caches(guide_client):
 def test_guide_not_configured_is_503(store, classifier, clock):
     client = TestClient(create_app(store, classifier, Settings(), clock, user_auth=FakeUserAuth()))
     assert ask(client).status_code == 503
+
+
+class BrokenGuides:
+    def find(self, plant, place, normals):
+        raise GuideError("Gemini quota or rate limit hit (HTTP 429 RESOURCE_EXHAUSTED).")
+
+
+def test_guide_failure_502_says_why(store, classifier, clock):
+    app = create_app(store, classifier, Settings(), clock, user_auth=FakeUserAuth(), guides=BrokenGuides(), climate=FakeClimate())
+    r = ask(TestClient(app))
+    assert r.status_code == 502 and "HTTP 429 RESOURCE_EXHAUSTED" in r.json()["detail"]

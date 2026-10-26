@@ -238,7 +238,8 @@ def create_app(store: Store, classifier: Classifier, settings: Settings,
             guide = guides.find(plant, place, normals)
         except (GuideError, ClimateError) as exc:
             log.warning("guide failed: %s", exc)
-            raise HTTPException(502, "couldn't write a guide right now, try again") from exc
+            # Both errors carry user-safe messages (status and reason, never keys), so say why.
+            raise HTTPException(502, f"couldn't write a guide: {exc}") from exc
         guide_cache[key] = (now, guide)
         return {"guide": guide, "climate": normals, "cached": False}
 
