@@ -29,7 +29,11 @@ If you've connected the **Supabase plugin**, tell me and I'll do steps 2–4 for
    ```
    Every line should say PASS.
 
-## 2. Hugging Face Space — the AI (15 min)
+## 2. The API server (15 min)
+
+**Render (recommended if Hugging Face limits your account):** render.com → sign up with GitHub → **New → Web Service** → pick the `agribot` repo → **Root Directory** `api` → **Language/Runtime** Docker → **Instance type** Free → add the same variables and secrets as in the Hugging Face table below (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ALLOWED_ORIGINS`, `MAPS_GROUNDING`, `GEMINI_API_KEY`) → **Deploy**. Your URL is `https://<service-name>.onrender.com`; check `/healthz`. Free services sleep after 15 min idle and take up to a minute to wake: use **Wake API** before a demo.
+
+### Or: Hugging Face Space
 
 1. huggingface.co → **New Space** → name `agribot-api` → SDK **Docker** → **Blank** → visibility **Public** (the camera has to reach it without a Hugging Face login; the API checks its own device tokens and the code holds no secrets) → hardware **CPU basic (free)**.
 2. Upload everything inside `agribot\api\` except `tests\`: the `app` and `model` folders, `Dockerfile`, `requirements.txt`, `README.md`, `.dockerignore`. Web: Files → Add file → Upload files (drag the folders in). Or tell me and I'll push it with the Hugging Face plugin.
