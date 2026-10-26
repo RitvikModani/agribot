@@ -6,7 +6,7 @@ import { clockTime, confidenceBlocks, pct, type Tone, type VerdictView } from '.
 
 /** Solid tone surfaces (specimen labels, tags). */
 export const toneBlock: Record<Tone, string> = {
-  healthy: 'bg-sprout text-soil',
+  healthy: 'bg-sprout-tint text-loam',
   disease: 'bg-terracotta text-cream',
   uncertain: 'bg-ochre text-soil',
   none: 'bg-cream text-bark ring-1 ring-bark/40',
@@ -82,7 +82,7 @@ export function StatusChip({ online }: { online: boolean }) {
   return (
     <span
       className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[12px] font-semibold uppercase tracking-wider ${
-        online ? 'bg-sprout text-soil' : 'bg-cream text-bark ring-1 ring-bark/30'
+        online ? 'bg-sprout-tint text-loam' : 'bg-cream text-bark ring-1 ring-bark/30'
       }`}
     >
       <span className={`size-2 rounded-full ${online ? 'pulse-dot bg-moss-deep' : 'bg-bark/60'}`} aria-hidden="true" />
@@ -227,7 +227,7 @@ export function Nav({ tab, onTab, docked }: { tab: Tab; onTab: (t: Tab) => void;
             aria-current={active ? 'page' : undefined}
             className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-xl text-[12px] font-semibold uppercase tracking-wider transition-colors duration-150 ${
               docked ? 'mb-2 min-h-13 flex-col' : 'min-h-10 px-4'
-            } ${active ? 'bg-sprout text-soil' : 'text-cream/75 hover:bg-cream/10 hover:text-cream'}`}
+            } ${active ? 'bg-sprout-tint text-loam' : 'text-cream/75 hover:bg-cream/10 hover:text-cream'}`}
           >
             <Icon className="size-5" aria-hidden="true" />
             {label}

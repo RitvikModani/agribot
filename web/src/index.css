@@ -1,20 +1,22 @@
 @import 'tailwindcss';
 
-/* AgriBot "field journal" tokens — see web/DESIGN.md */
+/* AgriBot "Verdeo, still alive" tokens — see web/DESIGN.md. tests/contrast.test.ts guards the pairs. */
 @theme {
-  --color-paper: #f1e7d2;
-  --color-card: #fbf5e7;
-  --color-inset: #efe3c9;
-  --color-line: #d6c39f;
-  --color-soil: #33241a;
-  --color-loam: #4a3627;
-  --color-bark: #6b5442;
-  --color-cream: #fbf5e7;
-  --color-moss: #4e6a2c;
-  --color-moss-deep: #34481c;
-  --color-sprout: #86a35a;
-  --color-terracotta: #a64a24;
-  --color-ochre: #c08a2b;
+  --color-paper: #f4ede1;
+  --color-card: #fbf7ef;
+  --color-inset: #ece4d3;
+  --color-line: #e2d8c3;
+  --color-soil: #3a3428;
+  --color-loam: #46512d;
+  --color-bark: #6b6149;
+  --color-cream: #fbf7ef;
+  --color-moss: #5e6b3e;
+  --color-moss-deep: #3f4a2a;
+  --color-sprout: #77874a;
+  --color-sprout-tint: #dde2c8;
+  --color-terracotta: #a0532f;
+  --color-terracotta-ink: #8e4527;
+  --color-ochre: #c9963a;
   --color-ochre-deep: #8a5f17;
 
   --font-sans: 'DM Sans Variable', system-ui, sans-serif;
@@ -32,25 +34,36 @@
     color: var(--color-soil);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
-    /* Paper grain: fine fractal noise over warm sand. */
     background-color: var(--color-paper);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .2 0 0 0 0 .14 0 0 0 0 .1 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
   :focus-visible {
-    outline: 2.5px solid var(--color-ochre);
+    outline: 2.5px solid var(--color-loam);
     outline-offset: 2px;
   }
   ::selection {
-    background: var(--color-sprout);
+    background: var(--color-sprout-tint);
     color: var(--color-soil);
   }
 }
 
-/* Fraunces at full softness with its "wonky" letterforms: hand-set, not corporate. */
+/* Fraunces, half-soft and without the "wonky" forms: calm, high-contrast serif. */
 .display {
   font-family: var(--font-display);
-  font-variation-settings: 'SOFT' 100, 'WONK' 1;
-  letter-spacing: -0.015em;
+  font-variation-settings: 'SOFT' 50, 'WONK' 0;
+  letter-spacing: -0.02em;
+}
+
+/* Italic Fraunces for the second half of a heading: "Good afternoon, Kazipet." */
+.accent {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 400;
+  font-variation-settings: 'SOFT' 50, 'WONK' 0;
+}
+
+/* Uneven organic corners for log cards (never a mask over the photo itself) */
+.organic {
+  border-radius: 28px 18px 32px 16px;
 }
 
 /* Soil band with faint terrain contour lines */
@@ -60,12 +73,12 @@
   color: var(--color-cream);
 }
 
-/* Paper card with a pressed offset shadow */
+/* Card on cream: hairline border, barely-there lift */
 .paper {
   background: var(--color-card);
-  border: 1.5px solid var(--color-line);
-  border-radius: 1.25rem;
-  box-shadow: 0 3px 0 rgb(51 36 26 / 0.1);
+  border: 1px solid var(--color-line);
+  border-radius: 1.5rem;
+  box-shadow: 0 1px 0 rgb(58 52 40 / 0.06);
 }
 
 /* Pressed-clay buttons: a solid lip underneath that collapses on press */
@@ -119,7 +132,7 @@
   top: 0;
   height: 3px;
   background: var(--color-ochre);
-  box-shadow: 0 0 18px 5px rgb(192 138 43 / 0.55);
+  box-shadow: 0 0 18px 5px rgb(201 150 58 / 0.55);
 }
 @keyframes sweep {
   from { transform: translateY(2%); }

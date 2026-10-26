@@ -25,7 +25,7 @@ export function Login({ onSignIn }: { onSignIn: (email: string, password: string
     <main className="min-h-dvh">
       <div className="soil-band rounded-b-[2.5rem] px-6 pb-12 pt-16 shadow-[0_5px_0_rgb(51_36_26/0.2)]">
         <div className="mx-auto max-w-md">
-          <span className="grid size-14 place-items-center rounded-full bg-sprout text-soil">
+          <span className="grid size-14 place-items-center rounded-full bg-sprout-tint text-loam">
             <Sprout className="size-8" aria-hidden="true" />
           </span>
           <h1 className="display mt-5 text-7xl font-bold italic leading-[0.9]">AgriBot</h1>

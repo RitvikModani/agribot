@@ -4,7 +4,7 @@ import type { Region } from '../lib/weather'
 import { Label, Panel } from './ui'
 
 const SUITABILITY = {
-  good: { text: 'Grows well here', className: 'bg-sprout text-soil' },
+  good: { text: 'Grows well here', className: 'bg-sprout-tint text-loam' },
   possible: { text: 'Possible with care', className: 'bg-ochre text-soil' },
   poor: { text: 'Hard to grow here', className: 'bg-terracotta text-cream' },
 } as const
@@ -76,7 +76,7 @@ export function GuideCard({ result, region }: { result: GuideResult; region: Reg
           <ol className="mt-3 space-y-3">
             {g.steps.map((s, i) => (
               <li key={i} className="grid grid-cols-[2rem_1fr] gap-2">
-                <span className="display grid size-8 place-items-center rounded-full bg-sprout text-lg font-bold text-soil">{i + 1}</span>
+                <span className="display grid size-8 place-items-center rounded-full bg-sprout-tint text-lg font-semibold text-loam">{i + 1}</span>
                 <span>
                   <span className="font-semibold">{s.title}</span>
                   <span className="block text-[15px] text-bark">{s.detail}</span>

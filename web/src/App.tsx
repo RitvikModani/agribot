@@ -39,7 +39,7 @@ export default function App() {
 function Wordmark() {
   return (
     <span className="flex items-center gap-2">
-      <span className="grid size-10 place-items-center rounded-full bg-sprout text-soil">
+      <span className="grid size-10 place-items-center rounded-full bg-sprout-tint text-loam">
         <Sprout className="size-6" aria-hidden="true" />
       </span>
       <span className="leading-none">
