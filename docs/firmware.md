@@ -57,7 +57,7 @@ Then extract the new root from `C:\Program Files\Git\mingw64\etc\ssl\certs\ca-bu
 
 Run with Serial Monitor open and the dashboard on your phone.
 
-- [ ] Boot prints `[camera] ready 640x480` and `[wifi] connected`
+- [ ] Boot prints `[camera] ready 640x480, sensor …` and `[wifi] connected`
 - [ ] Dashboard shows the rover **online** within 10 s
 - [ ] Press **Capture** on the dashboard → serial shows `[upload] 201` → result on the dashboard within 5 s
 - [ ] Point at a wall → result says **No leaf in frame**

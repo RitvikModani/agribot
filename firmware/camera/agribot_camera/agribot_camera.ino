@@ -17,6 +17,7 @@
 #include <WiFiManager.h>
 #include <esp_system.h>
 #include "esp_camera.h"
+#include "img_converters.h"
 #include "ca_cert.h"
 
 // AI-Thinker camera pins
@@ -45,6 +46,7 @@ constexpr uint32_t DOUBLE_RESET_WINDOW_MS = 3000;
 constexpr long STALE_REQUEST_S = 30;
 constexpr int UPLOAD_ATTEMPTS = 3;
 constexpr int HTTP_TIMEOUT_MS = 20000;
+constexpr int SOFT_JPEG_QUALITY = 80;  // 0-100, for sensors without a JPEG encoder
 
 Preferences prefs;
 WiFiClientSecure tls;
@@ -57,6 +59,7 @@ uint32_t wifiDownSinceMs = 0;
 bool resetFlagCleared = false;
 bool authRejected = false;
 bool cameraReady = false;
+bool softJpeg = false;  // sensor has no JPEG encoder (e.g. GC2145): capture RGB565, encode on the ESP32
 
 // ───────────────────────────── helpers ─────────────────────────────
 
@@ -211,22 +214,31 @@ bool startCamera() {
     return false;
   }
   esp_err_t err = esp_camera_init(&c);
+  if (err == ESP_ERR_NOT_SUPPORTED) {
+    // Cheaper AI-Thinker boards ship a GC2145, which has no JPEG encoder. Capture raw and encode here.
+    esp_camera_deinit();
+    c.pixel_format = PIXFORMAT_RGB565;
+    c.fb_count = 1;
+    err = esp_camera_init(&c);
+    softJpeg = err == ESP_OK;
+  }
   if (err != ESP_OK) {
     Serial.printf("[camera] init failed 0x%x\n", err);
     return false;
   }
   sensor_t* s = esp_camera_sensor_get();
-  s->set_whitebal(s, 1);
-  s->set_awb_gain(s, 1);
-  s->set_exposure_ctrl(s, 1);
-  s->set_gain_ctrl(s, 1);
+  // Not every sensor driver implements every control.
+  if (s->set_whitebal) s->set_whitebal(s, 1);
+  if (s->set_awb_gain) s->set_awb_gain(s, 1);
+  if (s->set_exposure_ctrl) s->set_exposure_ctrl(s, 1);
+  if (s->set_gain_ctrl) s->set_gain_ctrl(s, 1);
   // Let auto white balance settle: the first frames carry the OV2640's yellow-green tint.
   for (int i = 0; i < 5; ++i) {
     camera_fb_t* fb = esp_camera_fb_get();
     if (fb) esp_camera_fb_return(fb);
     delay(100);
   }
-  Serial.println("[camera] ready 640x480");
+  Serial.printf("[camera] ready 640x480, sensor 0x%x, %s\n", s->id.PID, softJpeg ? "JPEG encoded in software" : "hardware JPEG");
   return true;
 }
 
@@ -257,6 +269,7 @@ int postJpeg(const uint8_t* buf, size_t len, const String& captureId, const char
 
 void captureAndUpload(const char* trigger) {
   if (!cameraReady) {
+    Serial.println("[capture] camera not ready (see the [camera] line at boot)");
     blink(3);
     return;
   }
@@ -269,11 +282,25 @@ void captureAndUpload(const char* trigger) {
     return;
   }
   lastCaptureMs = millis();
+  const uint8_t* jpeg = fb->buf;
+  size_t jpegLen = fb->len;
+  uint8_t* encoded = nullptr;  // owned here when the sensor needed software encoding
+  if (softJpeg) {
+    const bool ok = frame2jpg(fb, SOFT_JPEG_QUALITY, &encoded, &jpegLen);
+    esp_camera_fb_return(fb);  // the raw frame is no longer needed
+    fb = nullptr;
+    if (!ok) {
+      Serial.println("[capture] JPEG encode failed");
+      blink(3);
+      return;
+    }
+    jpeg = encoded;
+  }
   const String id = uuid4();
-  Serial.printf("[capture] %s %u bytes (%s)\n", id.c_str(), fb->len, trigger);
+  Serial.printf("[capture] %s %u bytes (%s)\n", id.c_str(), jpegLen, trigger);
   int code = -1;
   for (int attempt = 0; attempt < UPLOAD_ATTEMPTS; ++attempt) {
-    code = postJpeg(fb->buf, fb->len, id, trigger);
+    code = postJpeg(jpeg, jpegLen, id, trigger);
     if (code == 200 || code == 201) break;
     if (code == 401 || code == 403) {
       authRejected = true;
@@ -282,7 +309,8 @@ void captureAndUpload(const char* trigger) {
     if (code >= 400 && code < 500 && code != 429) break;  // a retry won't fix a bad request
     delay(1000u << attempt);                               // 1 s, 2 s, 4 s
   }
-  esp_camera_fb_return(fb);
+  if (fb) esp_camera_fb_return(fb);
+  free(encoded);
   if (code == 200 || code == 201) blink(1, 200);
   else if (authRejected) blink(2, 600, 300);
   else blink(3);
