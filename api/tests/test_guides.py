@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.climate import ClimateError, OpenMeteoClimate, monthly_normals
 from app.config import Settings
-from app.guides import GeminiGuides, GuideError, build_guide_prompt, gemini_failure, normalize_plant, parse_guide
+from app.guides import GUIDE_SCHEMA, GeminiGuides, GuideError, build_guide_prompt, gemini_failure, normalize_plant, parse_guide
 from app.main import create_app
 
 USER_TOKEN = "user-jwt"
@@ -64,6 +64,11 @@ def test_parse_guide_accepts_not_a_plant():
 def test_parse_guide_rejects_malformed(bad):
     with pytest.raises(GuideError):
         parse_guide(interaction(bad))
+
+
+def test_schema_requires_every_field():
+    # Gemini skips optional fields (Flash-Lite did), and parse_guide rejects a guide with gaps.
+    assert set(GUIDE_SCHEMA["required"]) == set(GUIDE_SCHEMA["properties"])
 
 
 def test_parse_guide_names_an_unfinished_interaction():

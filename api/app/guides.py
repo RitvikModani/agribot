@@ -40,8 +40,10 @@ GUIDE_SCHEMA = {
         "pests_diseases": _LIST,
         "local_tips": _LIST,
     },
-    "required": ["recognized"],
 }
+# Require everything: lighter models skip optional fields. For a non-plant the model fills them anyway
+# and parse_guide ignores them once it sees recognized=false.
+GUIDE_SCHEMA["required"] = list(GUIDE_SCHEMA["properties"])
 REQUIRED_WHEN_RECOGNIZED = [k for k in GUIDE_SCHEMA["properties"] if k != "recognized"]
 
 
@@ -100,7 +102,7 @@ def build_guide_prompt(plant: str, place: str, normals: list[dict], month: int) 
         f"\"{plant}\" there. Base sowing months, water advice and risks on this 10-year monthly climate "
         f"(mean temperature, mean rainfall):\n{table}\n\nThe current month is {MONTHS[month - 1]}. "
         "Prefer locally common varieties and inputs. Keep every text field under 40 words and give at most 6 steps. "
-        "If the name is not a real plant that can be cultivated, return only {\"recognized\": false}."
+        "If the name is not a real plant that can be cultivated, set \"recognized\" to false and leave the other fields empty."
     )
 
 
