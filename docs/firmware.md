@@ -16,6 +16,8 @@ Verified to compile on 2026-10-25: camera 1,112,585 bytes (35% of flash), drive 
 3. FTDI only: remove the IO0 jumper and press RST.
 4. Serial Monitor at **115200** should print `[boot] AgriBot camera v2`.
 
+**Sensor:** many AI-Thinker boards now ship a **GC2145** instead of the OV2640. It has no JPEG encoder, so the firmware captures raw RGB565 and encodes the JPEG on the ESP32 (under a second). The boot log says which: `[camera] ready 640x480, sensor 0x2145, JPEG encoded in software` (GC2145) or `sensor 0x26, hardware JPEG` (OV2640). On a GC2145 the line `E (950) camera: JPEG format is not supported on this sensor` just before it is expected, and occasional `cam_hal: FB-SIZE: 610560 != 614400` lines are short frames the driver drops and retries.
+
 ## First-time setup (the portal)
 
 On first boot (or press **RST twice within 3 s**) the red LED stays on and the board opens a Wi-Fi network called **AgriBot-Setup**.
