@@ -50,6 +50,9 @@ constexpr int SOFT_JPEG_QUALITY = 80;  // 0-100, for sensors without a JPEG enco
 
 Preferences prefs;
 WiFiClientSecure tls;
+// One long-lived client: in esp32 core 2.0.x ~HTTPClient() calls stop() on the shared TLS client, so a
+// per-request HTTPClient tore the connection down every time and each request paid a fresh 4-8 s handshake.
+HTTPClient http;
 String apiBase;
 String deviceToken;
 String lastHandledRequest;
@@ -255,14 +258,16 @@ bool beginRequest(HTTPClient& http, const String& path) {
 }
 
 int postJpeg(const uint8_t* buf, size_t len, const String& captureId, const char* trigger) {
-  HTTPClient http;
   if (!beginRequest(http, "/v1/captures")) return -1;
   http.addHeader("Content-Type", "image/jpeg");
   http.addHeader("X-Capture-Id", captureId);
   http.addHeader("X-Trigger", trigger);
+  const bool reused = tls.connected();
+  const uint32_t started = millis();
   int code = http.POST(const_cast<uint8_t*>(buf), len);  // sent straight from the frame buffer
-  if (code > 0) Serial.printf("[upload] %d %s\n", code, http.getString().c_str());
-  else Serial.printf("[upload] error %s\n", http.errorToString(code).c_str());
+  const uint32_t tookMs = millis() - started;
+  if (code > 0) Serial.printf("[upload] %d in %u ms (%s) %s\n", code, tookMs, reused ? "reused TLS" : "new TLS", http.getString().c_str());
+  else Serial.printf("[upload] error %s after %u ms\n", http.errorToString(code).c_str(), tookMs);
   http.end();
   return code;
 }
@@ -273,6 +278,7 @@ void captureAndUpload(const char* trigger) {
     blink(3);
     return;
   }
+  const uint32_t started = millis();
   camera_fb_t* stale = esp_camera_fb_get();  // drop the buffered frame; we want "now"
   if (stale) esp_camera_fb_return(stale);
   camera_fb_t* fb = esp_camera_fb_get();
@@ -282,6 +288,7 @@ void captureAndUpload(const char* trigger) {
     return;
   }
   lastCaptureMs = millis();
+  const uint32_t grabMs = lastCaptureMs - started;
   const uint8_t* jpeg = fb->buf;
   size_t jpegLen = fb->len;
   uint8_t* encoded = nullptr;  // owned here when the sensor needed software encoding
@@ -297,7 +304,8 @@ void captureAndUpload(const char* trigger) {
     jpeg = encoded;
   }
   const String id = uuid4();
-  Serial.printf("[capture] %s %u bytes (%s)\n", id.c_str(), jpegLen, trigger);
+  Serial.printf("[capture] %s %u bytes (%s), frame %u ms, encode %u ms\n", id.c_str(), jpegLen, trigger, grabMs,
+                (uint32_t)(millis() - lastCaptureMs));
   int code = -1;
   for (int attempt = 0; attempt < UPLOAD_ATTEMPTS; ++attempt) {
     code = postJpeg(jpeg, jpegLen, id, trigger);
@@ -317,11 +325,14 @@ void captureAndUpload(const char* trigger) {
 }
 
 void pollState() {
-  HTTPClient http;
   if (!beginRequest(http, "/v1/device/state")) return;
+  const bool reused = tls.connected();
+  const uint32_t started = millis();
   int code = http.GET();
   String body = code > 0 ? http.getString() : String("");
   http.end();
+  const uint32_t tookMs = millis() - started;
+  if (tookMs > 1500) Serial.printf("[state] slow poll %u ms (%s)\n", tookMs, reused ? "reused TLS" : "new TLS");
   if (code == 401 || code == 403) {
     if (!authRejected) Serial.println("[state] token rejected — run the portal (double reset) and paste a new token");
     authRejected = true;
