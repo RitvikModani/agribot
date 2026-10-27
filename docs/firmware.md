@@ -23,8 +23,8 @@ On first boot (or press **RST twice within 3 s**) the red LED stays on and the b
 1. Turn on your phone hotspot.
 2. On a laptop or second phone, join **AgriBot-Setup** → a page opens (or browse to `192.168.4.1`) → **Configure WiFi**.
 3. Pick your hotspot, type its password.
-4. **API URL**: `https://<your-hf-username>-agribot-api.hf.space` (no trailing slash).
-5. **Device token**: the `agb_…` token from the dashboard's Device page. Leave blank later if you only want to change Wi-Fi.
+4. **API URL**: `https://agribot-api-vi4m.onrender.com` (no trailing slash).
+5. **Device token**: the `agb_…` token from the dashboard's Rover page (**Issue new token**). Leave blank later if you only want to change Wi-Fi.
 6. Save. The board restarts and joins the hotspot.
 
 The portal closes itself after 5 minutes. It has no password, so only open it when you're holding the board.
@@ -45,10 +45,10 @@ The portal closes itself after 5 minutes. It has no password, so only open it wh
 
 ## TLS root certificates
 
-`ca_cert.h` trusts **Amazon Root CA 1** (what `*.hf.space` chains to on 2026-10-25, via Amazon RSA 2048 M01), plus Starfield Services Root CA G2 and ISRG Root X1 as fallbacks. They expire 2035–2038. If uploads fail with a TLS error after Hugging Face changes provider, check the chain and regenerate:
+`ca_cert.h` trusts **GTS Root R4** (what `*.onrender.com` chains to on 2026-10-27, via Google's WE1, cross-signed by GlobalSign Root CA), plus GTS Root R1 and GlobalSign Root CA, and the Hugging Face roots (Amazon Root CA 1, Starfield G2, ISRG Root X1) in case the API moves back. The earliest expiry is GlobalSign Root CA in January 2028. If uploads fail with a TLS error after the host changes provider, check the chain and regenerate:
 
 ```
-echo | openssl s_client -connect <you>-agribot-api.hf.space:443 -servername <you>-agribot-api.hf.space -showcerts | grep -E "s:|i:"
+echo | openssl s_client -connect agribot-api-vi4m.onrender.com:443 -servername agribot-api-vi4m.onrender.com -showcerts | grep -E "s:|i:"
 ```
 
 Then extract the new root from `C:\Program Files\Git\mingw64\etc\ssl\certs\ca-bundle.crt` (each certificate is preceded by `# <Name>`) into `ca_cert.h`.
