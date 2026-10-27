@@ -9,10 +9,11 @@ import logging
 import os
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from typing import Callable
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -76,6 +77,8 @@ def create_app(store: Store, classifier: Classifier, settings: Settings,
     shop_cache: dict[tuple[str, float, float], tuple[datetime, str, list[dict]]] = {}
     guide_limiter = RateLimiter(per_second=10 / 60, burst=10, daily=300)
     guide_cache: dict[tuple[str, float, float], tuple[datetime, dict]] = {}
+    # Each store call is a ~300 ms round trip (Render Oregon -> Supabase Mumbai): run independent ones together.
+    io_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="store")
 
     def signed_in_user(authorization: str | None) -> str:
         token = authorization[7:].strip() if authorization and authorization.startswith("Bearer ") else ""
@@ -107,8 +110,14 @@ def create_app(store: Store, classifier: Classifier, settings: Settings,
     def healthz() -> dict:
         return {"ok": True, "model_version": settings.model_version}
 
+    def touch(device_id: str, now: datetime) -> None:
+        try:
+            store.touch_last_seen(device_id, now)
+        except StoreError as exc:  # presence is best-effort; never fail the poll for it
+            log.warning("last_seen write failed: %s", exc)
+
     @app.get("/v1/device/state")
-    def device_state(device: Device = Depends(require_device)) -> dict:
+    def device_state(background: BackgroundTasks, device: Device = Depends(require_device)) -> dict:
         now = clock()
         try:
             state = store.get_state(device.id)
@@ -117,36 +126,41 @@ def create_app(store: Store, classifier: Classifier, settings: Settings,
             raise HTTPException(503, "store unavailable") from exc
         previous = last_touch.get(device.id)
         if previous is None or (now - previous).total_seconds() >= 5:
-            try:
-                store.touch_last_seen(device.id, now)
-                last_touch[device.id] = now
-            except StoreError as exc:  # presence is best-effort; never fail the poll for it
-                log.warning("last_seen write failed: %s", exc)
+            last_touch[device.id] = now
+            background.add_task(touch, device.id, now)  # after the reply: the poll doesn't wait for it
         return {"capture_requested_at": iso(state.capture_requested_at), "patrol_on": state.patrol_on,
                 "patrol_interval_s": state.patrol_interval_s, "server_time": iso(now)}
 
     def analyse(device: Device, capture_id: str, trigger: str, body: bytes) -> CaptureRow:
-        img = decode(body, settings.min_side)
+        started = time.perf_counter()
+        img = decode(body, settings.min_side)  # reject a bad image before anything is stored
+        path = f"{device.owner}/{device.id}/{capture_id}.jpg"
+        # The upload (upsert) and the state read don't depend on the model, so they run while it does.
+        upload = io_pool.submit(store.put_image, path, body)
+        state_read = io_pool.submit(store.get_state, device.id)
         ranked = classifier.predict(to_tensor(img))
         label, confidence = ranked[0]
         leaf = leaf_fraction(img)
+        model_ms = (time.perf_counter() - started) * 1000
         if leaf < settings.min_leaf_fraction:
             verdict = "no_leaf"
         elif confidence < settings.low_confidence:
             verdict = "uncertain"
         else:
             verdict = "confident"
-        state = store.get_state(device.id)
-        path = f"{device.owner}/{device.id}/{capture_id}.jpg"
+        state = state_read.result()
+        upload.result()  # the row must not point at an image that isn't there yet
         row = CaptureRow(id=capture_id, device_id=device.id, owner=device.owner, image_path=path,
                          label=label, confidence=round(confidence, 4), verdict=verdict,
                          leaf_fraction=round(leaf, 4),
                          top3=[{"label": k, "confidence": round(p, 4)} for k, p in ranked[:3]],
                          model_version=settings.model_version, plant_tag=state.plant_tag)
-        store.put_image(path, body)
-        store.insert_capture(row)
+        writes = [io_pool.submit(store.insert_capture, row)]
         if trigger == "manual":
-            store.clear_capture_request(device.id)
+            writes.append(io_pool.submit(store.clear_capture_request, device.id))
+        for write in writes:
+            write.result()
+        log.info("capture %s model %.0fms total %.0fms", capture_id, model_ms, (time.perf_counter() - started) * 1000)
         return row
 
     @app.post("/v1/captures", status_code=201)
