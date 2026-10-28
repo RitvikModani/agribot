@@ -72,3 +72,15 @@ class SupabaseStore:
     def touch_last_seen(self, device_id: str, at: datetime) -> None:
         self._request("PATCH", "/rest/v1/devices", params={"id": f"eq.{device_id}"},
                       json={"last_seen_at": at.isoformat()}, headers={"Prefer": "return=minimal"})
+
+    def set_diagnosis(self, capture_id: str, status: str, ai: dict, model: str) -> None:
+        self._request("PATCH", "/rest/v1/captures", params={"id": f"eq.{capture_id}"},
+                      json={"ai_status": status, "ai": ai, "ai_model": model}, headers={"Prefer": "return=minimal"})
+
+    def get_place(self, owner: str) -> str | None:
+        rows = self._request("GET", "/rest/v1/profiles", params={
+            "select": "place_name,admin1,country", "user_id": f"eq.{owner}", "limit": "1"}).json()
+        if not rows:
+            return None
+        r = rows[0]
+        return ", ".join(p for p in (r.get("place_name"), r.get("admin1"), r.get("country")) if p) or None

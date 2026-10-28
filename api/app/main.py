@@ -24,6 +24,7 @@ from .inference import Classifier, OnnxClassifier
 from .preprocess import InvalidImage, decode, leaf_fraction, to_tensor
 from .ratelimit import RateLimiter
 from .climate import ClimateError, ClimateSource, OpenMeteoClimate
+from .diagnosis import DiagnosisError, DiagnosisWriter, GeminiDiagnosis
 from .guides import GeminiGuides, GuideError, GuideWriter, check_place, normalize_plant
 from .shops import INGREDIENTS, GeminiShops, ShopFinder, ShopsError
 from .store import CaptureRow, Device, MemoryStore, Store, StoreError
@@ -60,13 +61,13 @@ def iso(ts: datetime | None) -> str | None:
 
 def capture_view(row: CaptureRow) -> dict:
     return {"id": row.id, "label": row.label, "confidence": row.confidence, "verdict": row.verdict,
-            "leaf_fraction": row.leaf_fraction, "top3": row.top3}
+            "leaf_fraction": row.leaf_fraction, "top3": row.top3, "ai_status": row.ai_status}
 
 
 def create_app(store: Store, classifier: Classifier, settings: Settings,
                clock: Callable[[], datetime] = utcnow, shops: ShopFinder | None = None,
                user_auth: UserAuth | None = None, guides: GuideWriter | None = None,
-               climate: ClimateSource | None = None) -> FastAPI:
+               climate: ClimateSource | None = None, diagnosis: DiagnosisWriter | None = None) -> FastAPI:
     app = FastAPI(title="AgriBot API", docs_url=None, redoc_url=None, openapi_url=None)
     # Browsers calling from the dashboard (Wake API, shops) need CORS; the camera doesn't care.
     app.add_middleware(CORSMiddleware, allow_origins=list(settings.allowed_origins),
@@ -77,6 +78,7 @@ def create_app(store: Store, classifier: Classifier, settings: Settings,
     shop_cache: dict[tuple[str, float, float], tuple[datetime, str, list[dict]]] = {}
     guide_limiter = RateLimiter(per_second=10 / 60, burst=10, daily=300)
     guide_cache: dict[tuple[str, float, float], tuple[datetime, dict]] = {}
+    ai_limiter = RateLimiter(per_second=6 / 60, burst=6, daily=settings.ai_daily_limit)
     # Each store call is a ~300 ms round trip (Render Oregon -> Supabase Mumbai): run independent ones together.
     io_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="store")
 
@@ -150,11 +152,12 @@ def create_app(store: Store, classifier: Classifier, settings: Settings,
             verdict = "confident"
         state = state_read.result()
         upload.result()  # the row must not point at an image that isn't there yet
+        ai_status = "pending" if diagnosis is not None and ai_limiter.allow(device.id, clock()) else "skipped"
         row = CaptureRow(id=capture_id, device_id=device.id, owner=device.owner, image_path=path,
                          label=label, confidence=round(confidence, 4), verdict=verdict,
                          leaf_fraction=round(leaf, 4),
                          top3=[{"label": k, "confidence": round(p, 4)} for k, p in ranked[:3]],
-                         model_version=settings.model_version, plant_tag=state.plant_tag)
+                         model_version=settings.model_version, plant_tag=state.plant_tag, ai_status=ai_status)
         writes = [io_pool.submit(store.insert_capture, row)]
         if trigger == "manual":
             writes.append(io_pool.submit(store.clear_capture_request, device.id))
@@ -163,8 +166,27 @@ def create_app(store: Store, classifier: Classifier, settings: Settings,
         log.info("capture %s model %.0fms total %.0fms", capture_id, model_ms, (time.perf_counter() - started) * 1000)
         return row
 
+    def run_diagnosis(row: CaptureRow, body: bytes) -> None:
+        """After the reply: ask Gemini about the whole plant and update the row (the dashboard hears the UPDATE)."""
+        try:
+            place = store.get_place(row.owner) or "India"
+        except StoreError:
+            place = "India"
+        started = time.perf_counter()
+        try:
+            ai, status = diagnosis.diagnose(body, place, clock().month), "done"
+        except DiagnosisError as exc:
+            ai, status = {"reason": str(exc)}, "failed"
+        try:
+            store.set_diagnosis(row.id, status, ai, settings.gemini_model)
+        except StoreError as exc:
+            log.warning("diagnosis %s not saved: %s", row.id, exc)
+            return
+        log.info("diagnosis %s %s in %.0fms", row.id, status, (time.perf_counter() - started) * 1000)
+
     @app.post("/v1/captures", status_code=201)
-    async def create_capture(request: Request, response: Response, device: Device = Depends(require_device),
+    async def create_capture(request: Request, response: Response, background: BackgroundTasks,
+                             device: Device = Depends(require_device),
                              x_capture_id: str | None = Header(default=None),
                              x_trigger: str = Header(default="manual")) -> dict:
         content_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
@@ -198,6 +220,8 @@ def create_app(store: Store, classifier: Classifier, settings: Settings,
         except StoreError as exc:
             log.warning("capture %s failed: %s", capture_id, exc)
             raise HTTPException(503, "store unavailable, retry with the same X-Capture-Id") from exc
+        if row.ai_status == "pending":
+            background.add_task(run_diagnosis, row, body)
         return capture_view(row)
 
     @app.post("/v1/shops")
@@ -276,5 +300,6 @@ def build_app() -> FastAPI:
     user_auth = (SupabaseUserAuth(settings.supabase_url, settings.supabase_service_role_key)
                  if settings.supabase_url and settings.supabase_service_role_key else None)
     guides = GeminiGuides(settings.gemini_api_key, settings.gemini_model) if settings.gemini_api_key else None
+    diagnosis = GeminiDiagnosis(settings.gemini_api_key, settings.gemini_model) if settings.gemini_api_key else None
     return create_app(store, OnnxClassifier(settings.model_path), settings, shops=shops, user_auth=user_auth,
-                      guides=guides, climate=OpenMeteoClimate())
+                      guides=guides, climate=OpenMeteoClimate(), diagnosis=diagnosis)
