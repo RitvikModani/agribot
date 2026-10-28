@@ -222,7 +222,14 @@ bool startCamera() {
     esp_camera_deinit();
     c.pixel_format = PIXFORMAT_RGB565;
     c.fb_count = 1;
+    c.frame_size = FRAMESIZE_HD;  // 1280x720: a whole plant needs the pixels; 1.8 MB frame fits in PSRAM
     err = esp_camera_init(&c);
+    if (err != ESP_OK) {
+      Serial.printf("[camera] 1280x720 failed 0x%x, trying 800x600\n", err);
+      esp_camera_deinit();
+      c.frame_size = FRAMESIZE_SVGA;
+      err = esp_camera_init(&c);
+    }
     softJpeg = err == ESP_OK;
   }
   if (err != ESP_OK) {
@@ -236,12 +243,17 @@ bool startCamera() {
   if (s->set_exposure_ctrl) s->set_exposure_ctrl(s, 1);
   if (s->set_gain_ctrl) s->set_gain_ctrl(s, 1);
   // Let auto white balance settle: the first frames carry the OV2640's yellow-green tint.
+  unsigned width = 0, height = 0;
   for (int i = 0; i < 5; ++i) {
     camera_fb_t* fb = esp_camera_fb_get();
-    if (fb) esp_camera_fb_return(fb);
+    if (fb) {
+      width = fb->width;
+      height = fb->height;
+      esp_camera_fb_return(fb);
+    }
     delay(100);
   }
-  Serial.printf("[camera] ready 640x480, sensor 0x%x, %s\n", s->id.PID, softJpeg ? "JPEG encoded in software" : "hardware JPEG");
+  Serial.printf("[camera] ready %ux%u, sensor 0x%x, %s\n", width, height, s->id.PID, softJpeg ? "JPEG encoded in software" : "hardware JPEG");
   return true;
 }
 
