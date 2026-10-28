@@ -11,7 +11,7 @@ import httpx
 from .guides import MONTHS, gemini_failure
 
 log = logging.getLogger("agribot")
-TIMEOUT_S = 20.0
+TIMEOUT_S = 30.0  # runs after the reply, so a slow answer costs nothing visible (20 s lost 1 in 3 on the bench)
 MAX_FINDINGS = 6
 MAX_TEXT = 200
 HEALTH = ("healthy", "diseased", "unclear")
