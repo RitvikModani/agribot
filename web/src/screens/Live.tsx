@@ -80,7 +80,7 @@ export function Live({
         <div className="space-y-4">
           <ScanFrame src={src} scanning={request === 'pending'} alt={latest ? `Latest capture, ${view?.headline}` : 'No capture yet'}>
             <div className="absolute inset-x-0 top-0 flex justify-between p-3">
-              <span className="rounded-full bg-card/90 px-2.5 py-1 font-mono text-[11px] text-moss">Cam 01 · 640×480</span>
+              <span className="rounded-full bg-card/90 px-2.5 py-1 font-mono text-[11px] text-moss">Cam 01</span>
               {latest?.plantTag && <span className="rounded-full bg-card/90 px-2.5 py-1 text-[12px] font-semibold text-soil">{latest.plantTag}</span>}
             </div>
             {request === 'pending' && (
