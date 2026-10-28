@@ -46,7 +46,9 @@ constexpr uint32_t DOUBLE_RESET_WINDOW_MS = 3000;
 constexpr long STALE_REQUEST_S = 30;
 constexpr int UPLOAD_ATTEMPTS = 3;
 constexpr int HTTP_TIMEOUT_MS = 20000;
-constexpr int SOFT_JPEG_QUALITY = 80;  // 0-100, for sensors without a JPEG encoder
+// 0-100, for sensors without a JPEG encoder. 60 keeps a 1280x720 photo near 27 KB (80 gave ~45 KB, which a
+// weak phone-hotspot uplink couldn't send); Gemini gains more from the resolution than from JPEG polish.
+constexpr int SOFT_JPEG_QUALITY = 60;
 
 Preferences prefs;
 WiFiClientSecure tls;
