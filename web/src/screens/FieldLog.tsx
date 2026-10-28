@@ -6,6 +6,8 @@ import { LABEL_NAME, REMEDY, REMEDY_FOOTER } from '../lib/labels'
 import { clockTime, verdictView, type Tone } from '../lib/status'
 import { ConfidenceBlocks, Label, LeafMeter, Panel, ScanFrame, Top3, TruthLine, VerdictStamp, toneBlock, useImageUrl } from '../components/ui'
 import { Sprig } from '../components/verdeo'
+import { AiFindings, AiNote, BoxOverlay } from '../components/aiView'
+import { diagnosisOf, headline } from '../lib/diagnosis'
 
 type Filter = 'all' | Tone
 
@@ -24,10 +26,10 @@ export function FieldLog({ model, source }: { model: RoverModel; source: DataSou
 
   const counts = useMemo(() => {
     const c: Record<Filter, number> = { all: model.captures.length, disease: 0, healthy: 0, uncertain: 0, none: 0 }
-    for (const cap of model.captures) c[verdictView(cap).tone]++
+    for (const cap of model.captures) c[headline(cap).tone]++
     return c
   }, [model.captures])
-  const shown = filter === 'all' ? model.captures : model.captures.filter((c) => verdictView(c).tone === filter)
+  const shown = filter === 'all' ? model.captures : model.captures.filter((c) => headline(c).tone === filter)
 
   return (
     <div className="space-y-5">
@@ -103,14 +105,15 @@ export function FieldLog({ model, source }: { model: RoverModel; source: DataSou
 function Tile({ capture, source, onOpen }: { capture: Capture; source: DataSource; onOpen: () => void }) {
   const src = useImageUrl(source, capture.imagePath)
   const view = verdictView(capture)
-  const name = view.tone === 'none' ? 'No leaf' : view.tone === 'uncertain' ? 'Unsure' : view.headline
+  const lead = headline(capture)
+  const name = lead.source === 'ai' ? lead.text : view.tone === 'none' ? 'No leaf' : view.tone === 'uncertain' ? 'Unsure' : view.headline
   return (
     <button type="button" onClick={onOpen} className="organic group block w-full cursor-pointer bg-card p-2 text-left ring-1 ring-line transition-transform duration-200 hover:-translate-y-0.5">
       <div className="aspect-square overflow-hidden rounded-[22px_12px_26px_10px] bg-inset">
         {src && <img src={src} alt={view.headline} loading="lazy" className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />}
       </div>
       <div className="mt-2 px-1">
-        <span className={`inline-block rounded-full px-2.5 py-0.5 text-[12px] font-bold ${toneBlock[view.tone]}`}>{name}</span>
+        <span className={`inline-block max-w-full truncate rounded-full px-2.5 py-0.5 text-[12px] font-bold ${toneBlock[lead.tone]}`}>{name}</span>
         <div className="mt-1 flex justify-between font-mono text-[11px] text-bark">
           <span className="truncate">{capture.plantTag ?? '—'}</span>
           <span>{clockTime(capture.createdAt).slice(0, 5)}</span>
@@ -123,6 +126,8 @@ function Tile({ capture, source, onOpen }: { capture: Capture; source: DataSourc
 function Detail({ capture, source, onClose, onDelete }: { capture: Capture; source: DataSource; onClose: () => void; onDelete: () => void }) {
   const src = useImageUrl(source, capture.imagePath)
   const view = verdictView(capture)
+  const lead = headline(capture)
+  const ai = lead.source === 'ai'
   const [armed, setArmed] = useState(false)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -141,13 +146,19 @@ function Detail({ capture, source, onClose, onDelete }: { capture: Capture; sour
             <X className="size-5" aria-hidden="true" />
           </button>
         </div>
-        <ScanFrame src={src} alt={view.headline} scanning={false}>
+        <ScanFrame src={src} alt={lead.text} scanning={false}>
+          <BoxOverlay capture={capture} />
           <div className="absolute inset-x-0 bottom-0 p-4">
-            <VerdictStamp view={view} id={capture.id} createdAt={capture.createdAt} />
+            <VerdictStamp view={{ ...view, tone: lead.tone, headline: lead.text }} id={capture.id} createdAt={capture.createdAt} />
           </div>
         </ScanFrame>
         <Panel className="space-y-5">
-          <p className="text-bark">{view.detail}</p>
+          <div>
+            <p className="text-bark">{ai ? diagnosisOf(capture)?.summary : view.detail}</p>
+            <AiNote capture={capture} />
+          </div>
+          <AiFindings capture={capture} place={null} />
+          {ai && <Label>Tomato model · {view.headline}</Label>}
           {capture.verdict !== 'no_leaf' && <ConfidenceBlocks value={capture.confidence} />}
           <LeafMeter value={capture.leafFraction} />
           {capture.verdict !== 'no_leaf' && <Top3 items={capture.top3} />}

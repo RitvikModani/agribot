@@ -2,6 +2,7 @@ import type { LabelKey } from '../lib/labels'
 import type { Verdict } from '../lib/status'
 import type { Region } from '../lib/weather'
 import type { GuideResult } from '../lib/guide'
+import type { AiResult, AiStatus } from '../lib/diagnosis'
 
 export interface Capture {
   id: string
@@ -15,6 +16,10 @@ export interface Capture {
   top3: { label: LabelKey; confidence: number }[]
   modelVersion: string
   plantTag: string | null
+  /** Whole-plant diagnosis (Gemini vision), filled in a few seconds after the capture. */
+  aiStatus: AiStatus
+  ai: AiResult
+  aiModel: string | null
   /** Ground truth, only known for replay samples. */
   truth?: LabelKey | null
   source?: string

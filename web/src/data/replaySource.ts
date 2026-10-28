@@ -47,6 +47,9 @@ export function createReplaySource(base: string): DataSource {
     top3: item.top3,
     modelVersion: MODEL_VERSION,
     plantTag: state.plantTag,
+    aiStatus: 'skipped',
+    ai: null,
+    aiModel: null,
     truth: item.truth,
     source: item.source,
   })

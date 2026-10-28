@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Leaf, Minus, Plus, RotateCcw, ScanLine, Sprout, Stethoscope, Tag, Timer } from 'lucide-react'
+import { Cpu, Leaf, Minus, Plus, RotateCcw, ScanLine, Sprout, Stethoscope, Tag, Timer } from 'lucide-react'
 import type { Capture, DataSource } from '../data/types'
 import { useNow, type RoverModel } from '../hooks/useRover'
 import type { RegionModel } from '../hooks/useRegion'
@@ -7,6 +7,8 @@ import type { Forecast } from '../lib/weather'
 import { DiseasePressure, RegionPrompt, SprayWindow, WeatherCard } from '../components/weather'
 import { WhereToBuy } from '../components/shops'
 import { CaptureSteps, WaveBand } from '../components/verdeo'
+import { AiFindings, AiNote, BoxOverlay } from '../components/aiView'
+import { diagnosisOf, headline, isTomato } from '../lib/diagnosis'
 import type { Region } from '../lib/weather'
 import { REMEDY, REMEDY_FOOTER } from '../lib/labels'
 import { captureSteps } from '../lib/steps'
@@ -61,7 +63,9 @@ export function Live({
 
   const online = isOnline(rover.device.lastSeenAt, now)
   const request = captureRequestStatus(rover.state.captureRequestedAt, now)
-  const view = latest ? verdictView(latest) : null
+  // The stamp shows Gemini's whole-plant headline once it's in, the tomato model's until then.
+  const lead = latest ? headline(latest) : null
+  const view = latest && lead ? { ...verdictView(latest), tone: lead.tone, headline: lead.text } : null
   const revoked = rover.device.revokedAt !== null
   const hour = new Date(now).getHours()
   const partOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'
@@ -84,6 +88,7 @@ export function Live({
                 <span className="accent rounded-full bg-card/90 px-3.5 py-1.5 text-lg text-moss">Looking closely…</span>
               </div>
             )}
+            {latest && request !== 'pending' && <BoxOverlay capture={latest} />}
             {view && latest && request !== 'pending' && (
               <div className="absolute inset-x-0 bottom-0 p-4">
                 <VerdictStamp view={view} id={latest.id} createdAt={latest.createdAt} />
@@ -178,8 +183,11 @@ function Diagnosis({
   region: Region | null | undefined
   source: DataSource
 }) {
-  const steps = <CaptureSteps steps={captureSteps(request, capture)} onStep={(s) => jumpTo(s === 'Treat' ? 'treatment' : 'where-to-buy')} />
-  if (!capture) {
+  const lead = capture ? headline(capture) : null
+  const ai = lead?.source === 'ai'
+  // With a whole-plant diagnosis, its findings list is both the treatment and the place to buy.
+  const steps = <CaptureSteps steps={captureSteps(request, capture)} onStep={(s) => jumpTo(ai || s === 'Treat' ? 'treatment' : 'where-to-buy')} />
+  if (!capture || !lead) {
     return (
       <Panel className="space-y-4">
         <div>
@@ -191,48 +199,63 @@ function Diagnosis({
     )
   }
   const view = verdictView(capture)
+  const showModel = !ai || isTomato(capture) // the tomato model only has an opinion on tomatoes
   return (
     <Panel className="relative space-y-5 overflow-hidden">
       <Leaf className="pointer-events-none absolute -right-6 -top-6 size-36 rotate-12 text-moss/[0.06]" aria-hidden="true" />
       <div>
         <div className="flex items-baseline justify-between">
           <Label icon={Stethoscope}>Diagnosis</Label>
-          <span className="font-mono text-[11px] text-bark">{capture.modelVersion}</span>
+          <span className="font-mono text-[11px] text-bark">{ai ? capture.aiModel : capture.modelVersion}</span>
         </div>
-        <h2 className={`display mt-1 text-5xl font-semibold leading-[1.02] ${toneText[view.tone]}`}>{view.headline}</h2>
-        <p className="mt-1.5 text-bark">{view.detail}</p>
+        <h2 className={`display mt-1 text-5xl font-semibold leading-[1.02] ${toneText[lead.tone]}`}>{lead.text}</h2>
+        <p className="mt-1.5 text-bark">{ai ? diagnosisOf(capture)?.summary : view.detail}</p>
+        <AiNote capture={capture} />
       </div>
       {steps}
-      {capture.verdict !== 'no_leaf' && <ConfidenceBlocks value={capture.confidence} />}
-      <LeafMeter value={capture.leafFraction} />
-      {capture.verdict !== 'no_leaf' && (
-        <div>
-          <Label>Top three</Label>
-          <div className="mt-2">
-            <Top3 items={capture.top3} />
-          </div>
-        </div>
-      )}
-      {capture.truth && <TruthLine truth={capture.truth} predicted={capture.label} />}
-      {capture.verdict !== 'no_leaf' && (
-        <a href="#/grow/tomato" className="flex items-center gap-1.5 text-[14px] font-semibold text-moss underline-offset-4 hover:underline">
-          <Sprout className="size-4" aria-hidden="true" /> How to grow tomato{region ? ` in ${region.placeName}` : ''}
-        </a>
-      )}
-      {view.showRemedy && (
-        <div id="treatment" className={`scroll-mt-4 rounded-2xl p-4 ${view.tone === 'healthy' ? 'bg-sprout/20' : 'bg-terracotta/10'}`}>
-          <Label className={view.tone === 'healthy' ? 'text-moss' : 'text-terracotta-ink'}>{view.tone === 'healthy' ? 'Care' : 'Treatment'}</Label>
-          <p className="mt-1.5 leading-relaxed">{REMEDY[capture.label]}</p>
-          {view.tone === 'disease' && (
-            <>
-              <div className="mt-3">
-                <SprayWindow forecast={forecast} />
+      <AiFindings capture={capture} place={region?.placeName ?? null} />
+      {ai && lead.tone === 'disease' && <SprayWindow forecast={forecast} />}
+      {showModel && (
+        <div className={ai ? 'space-y-5 rounded-2xl bg-inset/60 p-4' : 'space-y-5'}>
+          {ai && (
+            <Label icon={Cpu}>
+              Second opinion (tomato model) · {view.headline}
+            </Label>
+          )}
+          {capture.verdict !== 'no_leaf' && <ConfidenceBlocks value={capture.confidence} />}
+          <LeafMeter value={capture.leafFraction} />
+          {capture.verdict !== 'no_leaf' && (
+            <div>
+              <Label>Top three</Label>
+              <div className="mt-2">
+                <Top3 items={capture.top3} />
               </div>
-              <div id="where-to-buy" className="scroll-mt-4">
-                <WhereToBuy key={capture.id} label={capture.label} region={region} source={source} />
-              </div>
-              <p className="mt-2 text-[13px] italic text-bark">{REMEDY_FOOTER}</p>
-            </>
+            </div>
+          )}
+          {capture.truth && <TruthLine truth={capture.truth} predicted={capture.label} />}
+          {capture.verdict !== 'no_leaf' && (
+            <a href="#/grow/tomato" className="flex items-center gap-1.5 text-[14px] font-semibold text-moss underline-offset-4 hover:underline">
+              <Sprout className="size-4" aria-hidden="true" /> How to grow tomato{region ? ` in ${region.placeName}` : ''}
+            </a>
+          )}
+          {view.showRemedy && (
+            <div id={ai ? undefined : 'treatment'} className={`scroll-mt-4 rounded-2xl p-4 ${view.tone === 'healthy' ? 'bg-sprout/20' : 'bg-terracotta/10'}`}>
+              <Label className={view.tone === 'healthy' ? 'text-moss' : 'text-terracotta-ink'}>{view.tone === 'healthy' ? 'Care' : 'Treatment'}</Label>
+              <p className="mt-1.5 leading-relaxed">{REMEDY[capture.label]}</p>
+              {view.tone === 'disease' && (
+                <>
+                  {!ai && (
+                    <div className="mt-3">
+                      <SprayWindow forecast={forecast} />
+                    </div>
+                  )}
+                  <div id={ai ? undefined : 'where-to-buy'} className="scroll-mt-4">
+                    <WhereToBuy key={capture.id} label={capture.label} region={region} source={source} />
+                  </div>
+                  <p className="mt-2 text-[13px] italic text-bark">{REMEDY_FOOTER}</p>
+                </>
+              )}
+            </div>
           )}
         </div>
       )}

@@ -32,6 +32,9 @@ const toCapture = (r: Row): Capture => ({
   top3: r.top3 as Capture['top3'],
   modelVersion: r.model_version as string,
   plantTag: (r.plant_tag as string | null) ?? null,
+  aiStatus: (r.ai_status as Capture['aiStatus'] | undefined) ?? 'skipped',
+  ai: (r.ai as Capture['ai'] | undefined) ?? null,
+  aiModel: (r.ai_model as string | null | undefined) ?? null,
 })
 
 function fail(error: { message: string } | null): void {
@@ -184,6 +187,8 @@ export function createSupabaseSource(url: string, anonKey: string, apiUrl: strin
       const channel = sb
         .channel('agribot-live')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'captures' }, (p) => onCapture(toCapture(p.new)))
+        // The whole-plant diagnosis lands a few seconds later as an UPDATE of the same row.
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'captures' }, (p) => onCapture(toCapture(p.new)))
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'devices' }, (p) => onDevice(toDevice(p.new)))
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'device_state' }, (p) => onState(toState(p.new)))
         .subscribe()
