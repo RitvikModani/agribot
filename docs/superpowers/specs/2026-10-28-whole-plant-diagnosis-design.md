@@ -22,7 +22,7 @@ Diagnose **any crop** from a photo of the **whole plant**, and point at the sick
 
 ## 2. Gemini request and result
 
-- Body: `input = [{"type": "text", "text": <prompt>}, {"type": "image", "data": <base64 JPEG>, "mime_type": "image/jpeg"}]`, `generation_config = {"thinking_level": "minimal"}` (Google's guidance for detection), `response_format` = the schema below. Timeout 20 s.
+- Body: `input = [{"type": "text", "text": <prompt>}, {"type": "image", "data": <base64 JPEG>, "mime_type": "image/jpeg"}]`, `generation_config = {"thinking_level": "minimal"}` (Google's guidance for detection), `response_format` = the schema below. Timeout 30 s (it runs after the reply).
 - Prompt: agronomist examining a photo from a field rover in `<place>` in `<month>`; identify the plant, its overall health, and each visible problem with a box around the affected leaves; boxes as `[ymin, xmin, ymax, xmax]` normalized 0–1000; at most 6 findings; if there's no plant, say so.
 - Schema, **every field required** (Flash-Lite skips optional ones):
 

@@ -242,6 +242,9 @@ bool startCamera() {
     c.pixel_format = PIXFORMAT_RGB565;
     c.fb_count = 1;
     c.xclk_freq_hz = 10000000;  // raw RGB565 at 20 MHz overflows the DMA (cam_hal: EV-EOF-OVF)
+    // GRAB_LATEST streams raw frames into PSRAM non-stop; at 1280x720 that starved Wi-Fi/TLS (18 s handshakes,
+    // failed uploads). WHEN_EMPTY fills one frame and stops until it's taken; capture drops it and takes a fresh one.
+    c.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
     // A whole plant needs pixels: take the largest size that actually delivers a full frame.
     const framesize_t sizes[] = {FRAMESIZE_HD, FRAMESIZE_SVGA, FRAMESIZE_VGA};
     for (framesize_t size : sizes) {
