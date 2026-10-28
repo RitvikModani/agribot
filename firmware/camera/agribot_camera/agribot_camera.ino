@@ -184,6 +184,23 @@ void runPortal() {
 
 // ───────────────────────────── camera ─────────────────────────────
 
+// True when the sensor delivers a complete raw frame at the current size (short or missing frames mean it can't keep up).
+bool grabsFullFrame() {
+  camera_fb_t* fb = esp_camera_fb_get();
+  if (!fb) return false;
+  const bool full = fb->len >= (size_t)fb->width * fb->height * 2 * 9 / 10;
+  esp_camera_fb_return(fb);
+  return full;
+}
+
+// The double-reset window is 3 s from boot. Close it from wherever setup happens to be by then.
+void closeResetWindowIfDue() {
+  if (!resetFlagCleared && millis() > DOUBLE_RESET_WINDOW_MS) {
+    disarmDoubleReset();
+    resetFlagCleared = true;
+  }
+}
+
 bool startCamera() {
   camera_config_t c = {};
   c.ledc_channel = LEDC_CHANNEL_0;
@@ -222,13 +239,17 @@ bool startCamera() {
     esp_camera_deinit();
     c.pixel_format = PIXFORMAT_RGB565;
     c.fb_count = 1;
-    c.frame_size = FRAMESIZE_HD;  // 1280x720: a whole plant needs the pixels; 1.8 MB frame fits in PSRAM
-    err = esp_camera_init(&c);
-    if (err != ESP_OK) {
-      Serial.printf("[camera] 1280x720 failed 0x%x, trying 800x600\n", err);
-      esp_camera_deinit();
-      c.frame_size = FRAMESIZE_SVGA;
+    c.xclk_freq_hz = 10000000;  // raw RGB565 at 20 MHz overflows the DMA (cam_hal: EV-EOF-OVF)
+    // A whole plant needs pixels: take the largest size that actually delivers a full frame.
+    const framesize_t sizes[] = {FRAMESIZE_HD, FRAMESIZE_SVGA, FRAMESIZE_VGA};
+    for (framesize_t size : sizes) {
+      closeResetWindowIfDue();
+      c.frame_size = size;
       err = esp_camera_init(&c);
+      if (err == ESP_OK && grabsFullFrame()) break;
+      Serial.printf("[camera] frame size %d unusable (0x%x), trying smaller\n", (int)size, err);
+      if (err == ESP_OK) esp_camera_deinit();
+      err = ESP_FAIL;
     }
     softJpeg = err == ESP_OK;
   }
@@ -419,6 +440,7 @@ void setup() {
   if (doubleReset || apiBase.isEmpty() || deviceToken.isEmpty()) runPortal();  // restarts
 
   cameraReady = startCamera();
+  closeResetWindowIfDue();
   tls.setCACert(API_ROOT_CAS);
 
   WiFi.mode(WIFI_STA);
@@ -426,16 +448,17 @@ void setup() {
   WiFi.setSleep(false);
   WiFi.begin();  // credentials saved by the portal
   const uint32_t started = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - started < 20000) blink(1, 60, 60);
+  while (WiFi.status() != WL_CONNECTED && millis() - started < 20000) {
+    blink(1, 60, 60);
+    // A second reset while still connecting (power blip, USB serial opening) must not open the portal.
+    closeResetWindowIfDue();
+  }
   Serial.printf("[wifi] %s %s\n", WiFi.status() == WL_CONNECTED ? "connected" : "not yet connected",
                 WiFi.localIP().toString().c_str());
 }
 
 void loop() {
-  if (!resetFlagCleared && millis() > DOUBLE_RESET_WINDOW_MS) {
-    disarmDoubleReset();
-    resetFlagCleared = true;
-  }
+  closeResetWindowIfDue();
   handleSerial();
   watchWifi();
   const uint32_t interval = authRejected ? AUTH_BACKOFF_MS : POLL_MS;
