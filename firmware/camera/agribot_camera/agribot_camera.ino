@@ -416,6 +416,9 @@ void handleSerial() {
     case 'p':
       Serial.printf("api=%s token=%s wifi=%s ip=%s rssi=%d\n", apiBase.c_str(), maskedToken().c_str(),
                     WiFi.SSID().c_str(), WiFi.localIP().toString().c_str(), WiFi.RSSI());
+      // TLS needs ~40 KB of contiguous internal RAM; the camera's DMA buffers compete for it.
+      Serial.printf("heap internal free=%u largest=%u psram free=%u\n", heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+                    heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL), heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
       break;
     case 'r':
       prefs.begin("agribot", false);
