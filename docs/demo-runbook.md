@@ -1,48 +1,91 @@
-# Demo runbook
+# Running AgriBot on your own
 
-## Two days before
+Everything you need without help. Phone-friendly copy: github.com/RitvikModani/agribot/blob/main/docs/demo-runbook.md
 
-- [ ] Full rehearsal on the phone hotspot, including the 20-capture acceptance test.
-- [ ] Record a 60-second video: phone screen + rover, one capture landing. This is the last-resort fallback.
+## How it fits together
 
-## The day before
+```
+Camera (ESP32-CAM + power bank) ──Wi-Fi──► your phone hotspot ──mobile data──► API on Render ──► Supabase (photos + results)
+                                                                                     │                    │
+                                                                        Gemini (whole-plant check)        ▼
+                                                                                                Dashboard (any phone/laptop)
+Car: your own Bluetooth car, driven from your phone app. Completely separate from the camera.
+```
 
-- [ ] Open the dashboard and sign in. This wakes Supabase, which pauses free projects after a week of no activity.
-- [ ] Rover screen → **Wake API**. It wakes the Space, which sleeps after 48 h idle; the first wake can take a minute.
-- [ ] One dry run, start to finish.
-- [ ] Charge: rover battery, phone, power bank.
-- [ ] Print 3–4 tomato-leaf photos from `model/data/plantvillage/` (one healthy, two diseased). Venues don't have tomato plants. A real tomato leaf in a zip bag is better still.
+| Thing | Where | Log in with |
+|---|---|---|
+| Dashboard | https://ritvikmodani.github.io/agribot/ | your dashboard email + password |
+| API (server) | dashboard.render.com → **agribot-api** | **Gmail** (`12ritviksantoshmodani12@…`), not the school account |
+| Database | supabase.com → **agribot** project | your Supabase login |
+| Code | github.com/RitvikModani/agribot | GitHub |
+
+Secrets (Supabase service key, Gemini key) live **only** in Render → agribot-api → Environment. Never paste them anywhere else.
+
+## Every time you use it
+
+1. Phone hotspot **on**: name `Ritvik`, **2.4 GHz** (iPhone: Maximize Compatibility on), **mobile data on**.
+2. Power the camera from its power bank. Red LED flickers while it joins Wi-Fi, then goes off.
+3. Open the dashboard → it shows **Online** within ~10 s.
+4. Point the camera at a whole plant, **60–100 cm away, in daylight**. Stop the car before capturing.
+5. **Capture leaf** (or turn on Patrol). In ~5 s the photo and a quick verdict appear; a few seconds later the **whole-plant check** replaces it: crop, problems, numbered boxes on the sick leaves, advice and a "find it near you" link.
+
+## Things you'll need to change yourself
+
+| Task | How |
+|---|---|
+| **Different Wi-Fi / second hotspot** | Press the camera's **RST twice within 3 s** → join Wi-Fi **AgriBot-Setup** → 192.168.4.1 → Configure WiFi → pick the network, type its password → leave **token blank** (kept) → Save. |
+| **New device token** | Dashboard → Rover → **Issue new token** (tap twice) → copy → camera portal as above → paste into Device token. Never paste the token in chat. |
+| **Your region** | Dashboard → Rover → Your region → Change. Weather, disease pressure and the whole-plant check use it. |
+| **Gemini model / daily limit** | Render → agribot-api → Environment: `GEMINI_MODEL` (now `gemini-3.5-flash-lite`), `AI_DAILY_LIMIT` (default 200) → Save, rebuild and deploy. |
+| **Code changes** | Push to `main`. Changes in `api/` deploy to Render by themselves (~1–2 min); changes in `web/` rebuild the dashboard (~1 min, GitHub Actions). |
+| **Flash the camera** | Arduino IDE → open `firmware/camera/agribot_camera/agribot_camera.ino` → Board **AI Thinker ESP32-CAM** → the **USB-SERIAL CH340** port (unplug other CH340 boards first) → Upload. Serial Monitor 115200: `p` prints config, `c` captures. |
+
+## Free-tier things that bite
+
+- **Render sleeps after 15 min** with no traffic and takes ~1 min to wake. A powered camera keeps it awake. Otherwise: Rover → **Wake API** first.
+- **Supabase pauses** a free project after **7 days** of no use. Sign in to the dashboard the day before any demo.
+- **Gemini free tier** has unpublished rate limits. If it's busy, the card keeps the quick verdict and says "Whole-plant check unavailable"; capture again in a minute.
+
+## The day before the event
+
+- [ ] Sign in to the dashboard (wakes Supabase). Rover → Wake API → HTTP 200.
+- [ ] Full dry run on **your hotspot**: 10 captures in a row, including one on a real diseased plant.
+- [ ] Second hotspot on a **different carrier** saved in the camera (portal, above).
+- [ ] Record a 60-second backup video of one full capture landing.
+- [ ] Charge: power bank, car battery, phone, laptop.
+- [ ] Bring 2–3 potted plants (one tomato, one with visible spots or curl).
 
 ## On site, 30 minutes before
 
-- [ ] Phone hotspot on, with the same name and password the camera was set up with.
-- [ ] Rover on → red LED stops flickering → dashboard shows **Online** within 10 s.
-- [ ] Rover screen → **Wake API** → HTTP 200.
-- [ ] Two test captures on a printed leaf. Patrol **off**.
-- [ ] Dashboard open on both phone and laptop. The laptop goes on the judges' side if there's a screen.
+- [ ] Hotspot on (2.4 GHz, data on) → camera on → dashboard **Online**.
+- [ ] Rover → **Wake API** → HTTP 200.
+- [ ] Two test captures on your plants. Patrol off.
+- [ ] Dashboard open on the laptop for the judges, phone for you.
 
 ## The 90-second demo
 
-1. "Farmers find disease late because scouting is slow. AgriBot goes and looks."
-2. Drive the rover a little (phone Bluetooth app), then press **Capture** on the dashboard → the scan sweep runs → the verdict stamps in.
-3. Point at the diagnosis: confidence blocks, top-3, treatment, and the "confirm with an extension officer" line.
-4. Turn the camera at the table → **"No leaf in frame"**. "It refuses to diagnose what isn't a leaf. Version 1 called our ceiling blight."
-5. **Field log**: every capture saved and filterable, viewable from any phone or laptop.
-6. **Rover** screen: device token, revoke, and the honest model card (78.5% on lab photos, tomato only, field validation next).
+1. "Farmers spot disease late because scouting is slow. AgriBot goes and looks."
+2. Drive the car to a plant, stop, press **Capture**: scan line → quick verdict → seconds later the **whole-plant check** with boxes on the sick leaves.
+3. Read one finding out: problem, severity, advice, "find it near you".
+4. Point the camera at the table → **"No plant in frame"**. "It refuses to diagnose what isn't a plant. Our first version called the ceiling blight."
+5. **Disease pressure** band: "It also warns you from the local weather which diseases are coming."
+6. **Field log**: every capture saved, from any phone. **Grow**: a growing guide for any crop in your region.
 
 ## When things go wrong
 
 | Problem | Do this |
 |---|---|
-| Mobile data dies | Open the dashboard with `?replay` on the end (e.g. `…/agribot/?replay#/live`). The hazard stripe shows it's recorded data — **say so out loud**. Still dead: play the video. |
-| Rover shows offline | Check the hotspot is on and the camera has power. It reconnects by itself and reboots after 60 s without Wi-Fi. |
-| Capture says "Not received" | Press it again. If it repeats, Wake API, then check the serial log (`docs/firmware.md`). |
-| LED blinks twice, slowly | Token rejected. Rover → Issue new token → press RST twice → paste it in the portal. |
-| Rover drives off | Disconnect Bluetooth on the phone. The motors stop (STATE-pin failsafe). |
+| Rover **offline** | Hotspot on, 2.4 GHz, data on? Camera powered? It reconnects by itself and reboots after 60 s without Wi-Fi. |
+| Capture says **"Not received"** | Press again. Still failing: Wake API, then check mobile signal; switch to the second hotspot. |
+| **"Whole-plant check unavailable"** | Gemini was slow or rate-limited. The quick verdict still stands; capture again in a minute. |
+| Camera LED **2 slow blinks** | Token rejected → new token → portal (above). |
+| Camera LED **solid on** | Setup portal is open (double reset or no settings). Join AgriBot-Setup and save, or wait 5 min for it to restart. |
+| Mobile data dead everywhere | Dashboard with `?replay` (`…/agribot/?replay#/live`) shows recorded samples, **say it's recorded**; or play the backup video. Open that link once **the day before, while online** (or Add to Home Screen) so the page is cached. |
 
 ## Honest answers for Q&A
 
-- **Accuracy?** 78.5% on 200 PlantVillage lab photos, which may overlap the training set. Not measured on real fields yet; that's the next step.
-- **Other crops?** Tomato only. Other plants get misread, which is why it shows confidence and an "uncertain" state.
-- **Why cloud?** Any phone can see results, there's no laptop to keep on, and every capture is stored for later analysis.
-- **Security?** Hashed per-device tokens, database row-level security, private image storage, verified HTTPS on the camera, and no passwords in the code.
+- **What does the diagnosis?** Google's Gemini vision model reads the whole plant; our own tomato model gives a fast first verdict and a second opinion on tomatoes; our own plant check stops it diagnosing non-plants.
+- **Accuracy?** Our tomato model: 78.5% on 200 lab photos (may overlap its training data). The whole-plant check hasn't been measured on a labelled field set yet; that's next, along with training our own detector.
+- **Without internet?** No: it needs mobile data. That's the trade-off for any phone being able to see results and every capture being stored.
+- **Cost?** Free tiers: Render, Supabase, GitHub Pages, Gemini.
+- **Security?** Hashed per-device tokens, row-level security, private photo storage, verified HTTPS on the camera, no passwords in the code.
