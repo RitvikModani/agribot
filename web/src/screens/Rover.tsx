@@ -1,9 +1,26 @@
 import { useState, type ReactNode } from 'react'
-import { Copy, Cpu, KeyRound, LogOut, MapPin, ShieldOff, Sprout, Zap } from 'lucide-react'
+import {
+  Camera,
+  Copy,
+  Cpu,
+  FlipHorizontal2,
+  FlipVertical2,
+  KeyRound,
+  LogOut,
+  MapPin,
+  Minus,
+  Plus,
+  ShieldOff,
+  Sprout,
+  SunMedium,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react'
 import { API_URL } from '../data'
 import type { DataSource, Session } from '../data/types'
 import { useNow, type RoverModel } from '../hooks/useRover'
 import type { RegionModel } from '../hooks/useRegion'
+import { EXPOSURE_MAX, EXPOSURE_MIN, exposureLabel, exposureValue, stepExposure } from '../lib/camera'
 import { isOnline, relativeTime } from '../lib/status'
 import { Label, Panel, StatusChip } from '../components/ui'
 import { ClimateBars, RegionPicker, regionLine } from '../components/weather'
@@ -47,6 +64,8 @@ export function RoverScreen({ model, source, session, region }: { model: RoverMo
           </dl>
         </Panel>
       )}
+
+      {rover && <CameraPanel model={model} online={isOnline(rover.device.lastSeenAt, now)} />}
 
       {rover && (
         <Panel className="space-y-4">
@@ -99,6 +118,76 @@ export function RoverScreen({ model, source, session, region }: { model: RoverMo
           </button>
         )}
       </Panel>
+    </div>
+  )
+}
+
+function CameraPanel({ model, online }: { model: RoverModel; online: boolean }) {
+  const state = model.rover!.state
+  const exposure = state.camExposure
+  const setExposure = (delta: number) => {
+    const next = stepExposure(exposure, delta)
+    if (next !== exposure) void model.updateControls({ camExposure: next })
+  }
+  const stepper = 'clay grid size-11 cursor-pointer place-items-center rounded-full bg-inset text-soil [--lip:var(--color-line)] disabled:cursor-not-allowed disabled:opacity-40'
+
+  return (
+    <Panel className="space-y-5">
+      <div>
+        <Label icon={Camera}>Camera</Label>
+        <p className="mt-1 text-[15px] text-bark">
+          {online ? 'The camera picks changes up within a few seconds. Capture again to see them.' : 'Rover offline. Changes are saved and apply when it reconnects.'}
+        </p>
+      </div>
+      <div>
+        <Label icon={SunMedium}>Exposure</Label>
+        <div className="mt-2 flex items-center gap-3">
+          <button type="button" onClick={() => setExposure(-1)} disabled={exposure <= EXPOSURE_MIN} aria-label="Darker" className={stepper}>
+            <Minus className="size-5" aria-hidden="true" />
+          </button>
+          <div className="flex-1 text-center" aria-live="polite">
+            <span className="display text-4xl font-semibold tabular-nums">{exposureValue(exposure)}</span>
+            <span className="ml-1.5 text-sm text-bark">{exposureLabel(exposure)}</span>
+          </div>
+          <button type="button" onClick={() => setExposure(1)} disabled={exposure >= EXPOSURE_MAX} aria-label="Brighter" className={stepper}>
+            <Plus className="size-5" aria-hidden="true" />
+          </button>
+        </div>
+        <div className="mt-3 grid grid-cols-5 gap-1.5" aria-hidden="true">
+          {[-2, -1, 0, 1, 2].map((v) => (
+            <span key={v} className={`h-1.5 rounded-full ${v === exposure ? 'bg-ochre' : v < exposure ? 'bg-ochre/40' : 'bg-line'}`} />
+          ))}
+        </div>
+        <p className="mt-2 text-[13px] text-bark">Shifts what the auto-exposure aims for. Washed-out photos: try −1.</p>
+      </div>
+      <div className="grid gap-3">
+        <SwitchRow icon={FlipHorizontal2} label="Mirror" hint="Swap left and right" checked={state.camHmirror} onToggle={() => void model.updateControls({ camHmirror: !state.camHmirror })} />
+        <SwitchRow icon={FlipVertical2} label="Flip" hint="Turn upside down" checked={state.camVflip} onToggle={() => void model.updateControls({ camVflip: !state.camVflip })} />
+      </div>
+    </Panel>
+  )
+}
+
+function SwitchRow({ icon: Icon, label, hint, checked, onToggle }: { icon: LucideIcon; label: string; hint: string; checked: boolean; onToggle: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-2xl bg-inset px-4 py-3">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <Icon className="size-5 shrink-0 text-moss" aria-hidden="true" />
+        <div className="min-w-0">
+          <p className="font-semibold leading-tight">{label}</p>
+          <p className="truncate text-[13px] text-bark">{hint}</p>
+        </div>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        onClick={onToggle}
+        className={`relative h-9 w-16 shrink-0 cursor-pointer rounded-full transition-colors duration-150 ${checked ? 'bg-moss' : 'bg-paper ring-1 ring-inset ring-line'}`}
+      >
+        <span className={`absolute top-1 size-7 rounded-full shadow-[0_2px_0_rgb(51_36_26/0.25)] transition-[left] duration-150 ${checked ? 'left-8 bg-cream' : 'left-1 bg-bark/60'}`} />
+      </button>
     </div>
   )
 }

@@ -36,9 +36,10 @@ Secrets (Supabase service key, Gemini key) live **only** in Render → agribot-a
 | **Different Wi-Fi / second hotspot** | Press the camera's **RST twice within 3 s** → join Wi-Fi **AgriBot-Setup** → 192.168.4.1 → Configure WiFi → pick the network, type its password → leave **token blank** (kept) → Save. |
 | **New device token** | Dashboard → Rover → **Issue new token** (tap twice) → copy → camera portal as above → paste into Device token. Never paste the token in chat. |
 | **Your region** | Dashboard → Rover → Your region → Change. Weather, disease pressure and the whole-plant check use it. |
+| **Photos too bright / dark, mirrored, upside down** | Dashboard → Rover → **Camera**: Exposure −2 (darker) to +2 (brighter), Mirror, Flip. The camera picks it up within a few seconds; capture again to check. Washed out in sunlight: −1 or −2. (+2 barely brightens indoors: the camera is already at its limit there.) |
 | **Gemini model / daily limit** | Render → agribot-api → Environment: `GEMINI_MODEL` (now `gemini-3.5-flash-lite`), `AI_DAILY_LIMIT` (default 200) → Save, rebuild and deploy. |
 | **Code changes** | Push to `main`. Changes in `api/` deploy to Render by themselves (~1–2 min); changes in `web/` rebuild the dashboard (~1 min, GitHub Actions). |
-| **Flash the camera** | Arduino IDE → open `firmware/camera/agribot_camera/agribot_camera.ino` → Board **AI Thinker ESP32-CAM** → the **USB-SERIAL CH340** port (unplug other CH340 boards first) → Upload. Serial Monitor 115200: `p` prints config, `c` captures. |
+| **Flash the camera** | Arduino IDE → open `firmware/camera/agribot_camera/agribot_camera.ino` → Board **AI Thinker ESP32-CAM** → the **USB-SERIAL CH340** port (unplug other CH340 boards first) → Upload. Serial Monitor 115200: `p` prints config, `c` captures (the log shows size, timings and `luma`, the photo's brightness 0–255), `v` logs every check-in's time. |
 
 ## Free-tier things that bite
 
@@ -80,6 +81,7 @@ Secrets (Supabase service key, Gemini key) live **only** in Render → agribot-a
 | **"Whole-plant check unavailable"** | Gemini was slow or rate-limited. The quick verdict still stands; capture again in a minute. |
 | Camera LED **2 slow blinks** | Token rejected → new token → portal (above). |
 | Camera LED **solid on** | Setup portal is open (double reset or no settings). Join AgriBot-Setup and save, or wait 5 min for it to restart. |
+| Camera **hot to the touch** | Normal for an ESP32-CAM up to "warm but holdable" (its radio never sleeps: sleeping made uploads 2–3× slower). Keep it out of closed boxes and direct sun. Too hot to hold for 5 s, or a smell: unplug and check the wiring. |
 | Mobile data dead everywhere | Dashboard with `?replay` (`…/agribot/?replay#/live`) shows recorded samples, **say it's recorded**; or play the backup video. Open that link once **the day before, while online** (or Add to Home Screen) so the page is cached. |
 
 ## Honest answers for Q&A

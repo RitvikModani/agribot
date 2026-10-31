@@ -131,7 +131,8 @@ def create_app(store: Store, classifier: Classifier, settings: Settings,
             last_touch[device.id] = now
             background.add_task(touch, device.id, now)  # after the reply: the poll doesn't wait for it
         return {"capture_requested_at": iso(state.capture_requested_at), "patrol_on": state.patrol_on,
-                "patrol_interval_s": state.patrol_interval_s, "server_time": iso(now)}
+                "patrol_interval_s": state.patrol_interval_s, "cam_exposure": state.cam_exposure,
+                "cam_hmirror": state.cam_hmirror, "cam_vflip": state.cam_vflip, "server_time": iso(now)}
 
     def analyse(device: Device, capture_id: str, trigger: str, body: bytes) -> CaptureRow:
         started = time.perf_counter()

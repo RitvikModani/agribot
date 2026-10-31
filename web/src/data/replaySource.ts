@@ -25,7 +25,16 @@ const MODEL_VERSION = 'tomato-tm-v1'
 export function createReplaySource(base: string): DataSource {
   const iso = (msAgo = 0) => new Date(Date.now() - msAgo).toISOString()
   const device: Device = { id: 'replay-rover', name: 'AgriBot · replay', createdAt: iso(86_400_000), lastSeenAt: iso(), revokedAt: null }
-  let state: DeviceState = { deviceId: device.id, patrolOn: false, patrolIntervalS: 10, captureRequestedAt: null, plantTag: 'demo-bed' }
+  let state: DeviceState = {
+    deviceId: device.id,
+    patrolOn: false,
+    patrolIntervalS: 10,
+    captureRequestedAt: null,
+    plantTag: 'demo-bed',
+    camExposure: 0,
+    camHmirror: false,
+    camVflip: false,
+  }
   const captures: Capture[] = []
   const listeners = new Set<Subscription>()
   let items: ReplayItem[] = []

@@ -39,6 +39,9 @@ export interface DeviceState {
   patrolIntervalS: number
   captureRequestedAt: string | null
   plantTag: string | null
+  camExposure: number // -2 (darker) .. +2 (brighter)
+  camHmirror: boolean
+  camVflip: boolean
 }
 
 export interface Rover {
@@ -50,7 +53,9 @@ export interface Session {
   email: string
 }
 
-export type ControlPatch = Partial<Pick<DeviceState, 'patrolOn' | 'patrolIntervalS' | 'plantTag'>>
+export type ControlPatch = Partial<
+  Pick<DeviceState, 'patrolOn' | 'patrolIntervalS' | 'plantTag' | 'camExposure' | 'camHmirror' | 'camVflip'>
+>
 
 export interface CaptureQuery {
   limit: number

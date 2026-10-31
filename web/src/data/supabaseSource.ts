@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Capture, DataSource, Device, DeviceState, ShopResult } from './types'
+import { controlRow } from './controls'
 import { placeForPrompt, type GuideResult } from '../lib/guide'
 
 type Row = Record<string, unknown>
@@ -18,6 +19,9 @@ const toState = (r: Row): DeviceState => ({
   patrolIntervalS: r.patrol_interval_s as number,
   captureRequestedAt: (r.capture_requested_at as string | null) ?? null,
   plantTag: (r.plant_tag as string | null) ?? null,
+  camExposure: (r.cam_exposure as number | undefined) ?? 0,
+  camHmirror: (r.cam_hmirror as boolean | undefined) ?? false,
+  camVflip: (r.cam_vflip as boolean | undefined) ?? false,
 })
 
 const toCapture = (r: Row): Capture => ({
@@ -115,11 +119,7 @@ export function createSupabaseSource(url: string, anonKey: string, apiUrl: strin
     },
 
     async updateControls(deviceId, patch) {
-      const row: Row = {}
-      if (patch.patrolOn !== undefined) row.patrol_on = patch.patrolOn
-      if (patch.patrolIntervalS !== undefined) row.patrol_interval_s = patch.patrolIntervalS
-      if (patch.plantTag !== undefined) row.plant_tag = patch.plantTag
-      const { error } = await sb.from('device_state').update(row).eq('device_id', deviceId)
+      const { error } = await sb.from('device_state').update(controlRow(patch)).eq('device_id', deviceId)
       fail(error)
     },
 

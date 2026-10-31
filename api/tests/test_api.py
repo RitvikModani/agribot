@@ -117,14 +117,23 @@ def test_store_failure_is_503(client, store):
 def test_state_returns_controls_and_server_time(client, store, clock):
     s = store.state(TOKEN)
     s.patrol_on, s.patrol_interval_s, s.capture_requested_at = True, 15, clock.now - timedelta(seconds=3)
+    s.cam_exposure, s.cam_hmirror, s.cam_vflip = -2, True, False
     r = client.get("/v1/device/state", headers={"X-Device-Token": TOKEN})
     assert r.status_code == 200
     assert r.json() == {
         "capture_requested_at": "2026-11-01T08:59:57Z",
         "patrol_on": True,
         "patrol_interval_s": 15,
+        "cam_exposure": -2,
+        "cam_hmirror": True,
+        "cam_vflip": False,
         "server_time": "2026-11-01T09:00:00Z",
     }
+
+
+def test_state_camera_defaults(client):
+    body = client.get("/v1/device/state", headers={"X-Device-Token": TOKEN}).json()
+    assert (body["cam_exposure"], body["cam_hmirror"], body["cam_vflip"]) == (0, False, False)
 
 
 def test_state_requires_token(client):

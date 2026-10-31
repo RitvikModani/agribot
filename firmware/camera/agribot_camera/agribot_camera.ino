@@ -65,10 +65,16 @@ bool resetFlagCleared = false;
 bool authRejected = false;
 bool cameraReady = false;
 bool softJpeg = false;  // sensor has no JPEG encoder (e.g. GC2145): capture RGB565, encode on the ESP32
+// Camera settings last applied (dashboard → Rover → Camera). 0 / false are the sensor's own defaults.
+int appliedExposure = 0;
+bool appliedMirror = false;
+bool appliedFlip = false;
 
 // ───────────────────────────── helpers ─────────────────────────────
 
 void led(bool on) { digitalWrite(STATUS_LED, on ? LOW : HIGH); }
+
+bool logPolls = false;  // 'v' on serial logs every check-in's time, not only the slow ones
 
 void blink(int times, int onMs = 120, int offMs = 160) {
   for (int i = 0; i < times; ++i) {
@@ -118,7 +124,9 @@ bool jsonBool(const String& body, const char* key) {
 
 long jsonInt(const String& body, const char* key, long fallback) {
   int i = valueStart(body, key);
-  return (i < 0 || !isDigit(body[i])) ? fallback : body.substring(i).toInt();
+  if (i < 0) return fallback;
+  const int digit = body[i] == '-' ? i + 1 : i;
+  return isDigit(body[digit]) ? body.substring(i).toInt() : fallback;
 }
 
 // "YYYY-MM-DDTHH:MM:SSZ" → seconds since 1970 (UTC). -1 if unparseable.
@@ -283,6 +291,55 @@ bool startCamera() {
   return true;
 }
 
+// The GC2145 driver has no exposure setter. Its auto-exposure aims at a brightness target on register page 1
+// (0x13, default 0x40) inside a low/high limit (0x23 = 0x20, 0x15 = 0x50); move all three by the same amount.
+void setGc2145Exposure(sensor_t* s, int level) {
+  const int target = 0x40 + 12 * level;  // -2..+2 → 0x28..0x58
+  s->set_reg(s, 0xfe, 0xff, 0x01);       // page 1 (set_reg doesn't select the page itself)
+  s->set_reg(s, 0x13, 0xff, target);
+  s->set_reg(s, 0x23, 0xff, target - 0x20);
+  s->set_reg(s, 0x15, 0xff, target + 0x10);
+  s->set_reg(s, 0xfe, 0xff, 0x00);  // back to page 0, which the driver's own writes assume
+}
+
+// Applies only what changed, so the 2 s check-in costs nothing when the settings are unchanged.
+void applyCameraSettings(int exposure, bool mirror, bool flip) {
+  if (!cameraReady) return;
+  sensor_t* s = esp_camera_sensor_get();
+  exposure = constrain(exposure, -2, 2);
+  if (exposure != appliedExposure) {
+    if (s->id.PID == GC2145_PID) setGc2145Exposure(s, exposure);
+    else if (s->set_ae_level) s->set_ae_level(s, exposure);  // OV2640 and friends
+    appliedExposure = exposure;
+    Serial.printf("[camera] exposure %+d\n", exposure);
+  }
+  if (mirror != appliedMirror) {
+    s->set_hmirror(s, mirror);
+    appliedMirror = mirror;
+    Serial.printf("[camera] mirror %s\n", mirror ? "on" : "off");
+  }
+  if (flip != appliedFlip) {
+    s->set_vflip(s, flip);
+    appliedFlip = flip;
+    Serial.printf("[camera] flip %s\n", flip ? "on" : "off");
+  }
+}
+
+// Mean brightness 0-255 of an RGB565 frame from every 8th pixel of every 8th row: the number to tune exposure by.
+int meanLuma(const camera_fb_t* fb) {
+  uint32_t sum = 0, n = 0;
+  for (size_t y = 0; y < fb->height; y += 8) {
+    for (size_t x = 0; x < fb->width; x += 8) {
+      const uint8_t* px = fb->buf + 2 * (y * fb->width + x);
+      const uint16_t p = (px[0] << 8) | px[1];  // big-endian, as frame2jpg reads it
+      const uint32_t r = (p >> 11) << 3, g = ((p >> 5) & 0x3f) << 2, b = (p & 0x1f) << 3;
+      sum += (77 * r + 150 * g + 29 * b) >> 8;
+      ++n;
+    }
+  }
+  return n ? (int)(sum / n) : -1;
+}
+
 // ───────────────────────────── network ─────────────────────────────
 
 bool beginRequest(HTTPClient& http, const String& path) {
@@ -330,6 +387,7 @@ void captureAndUpload(const char* trigger) {
   const uint8_t* jpeg = fb->buf;
   size_t jpegLen = fb->len;
   uint8_t* encoded = nullptr;  // owned here when the sensor needed software encoding
+  const int luma = softJpeg ? meanLuma(fb) : -1;
   if (softJpeg) {
     const bool ok = frame2jpg(fb, SOFT_JPEG_QUALITY, &encoded, &jpegLen);
     esp_camera_fb_return(fb);  // the raw frame is no longer needed
@@ -342,8 +400,8 @@ void captureAndUpload(const char* trigger) {
     jpeg = encoded;
   }
   const String id = uuid4();
-  Serial.printf("[capture] %s %u bytes (%s), frame %u ms, encode %u ms\n", id.c_str(), jpegLen, trigger, grabMs,
-                (uint32_t)(millis() - lastCaptureMs));
+  Serial.printf("[capture] %s %u bytes (%s), frame %u ms, encode %u ms, luma %d, exposure %+d\n", id.c_str(), jpegLen,
+                trigger, grabMs, (uint32_t)(millis() - lastCaptureMs), luma, appliedExposure);
   int code = -1;
   for (int attempt = 0; attempt < UPLOAD_ATTEMPTS; ++attempt) {
     code = postJpeg(jpeg, jpegLen, id, trigger);
@@ -370,7 +428,9 @@ void pollState() {
   String body = code > 0 ? http.getString() : String("");
   http.end();
   const uint32_t tookMs = millis() - started;
-  if (tookMs > 1500) Serial.printf("[state] slow poll %u ms (%s)\n", tookMs, reused ? "reused TLS" : "new TLS");
+  if (tookMs > 1500 || logPolls) {
+    Serial.printf("[state] %spoll %u ms (%s)\n", tookMs > 1500 ? "slow " : "", tookMs, reused ? "reused TLS" : "new TLS");
+  }
   if (code == 401 || code == 403) {
     if (!authRejected) Serial.println("[state] token rejected — run the portal (double reset) and paste a new token");
     authRejected = true;
@@ -382,6 +442,9 @@ void pollState() {
     return;
   }
   authRejected = false;
+  if (valueStart(body, "cam_exposure") >= 0) {  // older APIs don't send camera settings
+    applyCameraSettings(jsonInt(body, "cam_exposure", 0), jsonBool(body, "cam_hmirror"), jsonBool(body, "cam_vflip"));
+  }
 
   const String requested = jsonString(body, "capture_requested_at");
   const long long serverNow = isoToEpoch(jsonString(body, "server_time"));
@@ -414,7 +477,8 @@ void watchWifi() {
 
 void handleSerial() {
   if (!Serial.available()) return;
-  switch (Serial.read()) {
+  const int c = Serial.read();
+  switch (c) {
     case 'c':
       captureAndUpload("manual");
       break;
@@ -424,6 +488,14 @@ void handleSerial() {
       // TLS needs ~40 KB of contiguous internal RAM; the camera's DMA buffers compete for it.
       Serial.printf("heap internal free=%u largest=%u psram free=%u\n", heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
                     heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL), heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+      Serial.printf("camera exposure=%+d mirror=%d flip=%d\n", appliedExposure, appliedMirror, appliedFlip);
+      break;
+    case 'v':
+      logPolls = !logPolls;
+      break;
+    case '+':  // bench only: the next check-in restores the dashboard's value
+    case '-':
+      applyCameraSettings(appliedExposure + (c == '+' ? 1 : -1), appliedMirror, appliedFlip);
       break;
     case 'r':
       prefs.begin("agribot", false);
@@ -453,6 +525,9 @@ void setup() {
 
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
+  // Radio always awake. Modem sleep was tried for heat (2026-10-31): check-ins were unchanged, but uploads on
+  // the phone hotspot went from 3-12 s to 15-42 s (some failed), even with sleep switched off around each
+  // request. A 15 dBm transmit cap didn't help either. Heat is handled physically (airflow), not here.
   WiFi.setSleep(false);
   WiFi.begin();  // credentials saved by the portal
   const uint32_t started = millis();

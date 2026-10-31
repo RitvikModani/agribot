@@ -26,6 +26,9 @@ class DeviceState:
     patrol_on: bool = False
     patrol_interval_s: int = 10
     plant_tag: str | None = None
+    cam_exposure: int = 0  # -2 (darker) .. +2 (brighter)
+    cam_hmirror: bool = False
+    cam_vflip: bool = False
 
 
 @dataclass(frozen=True)

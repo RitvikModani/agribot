@@ -57,13 +57,14 @@ class SupabaseStore:
 
     def get_state(self, device_id: str) -> DeviceState:
         rows = self._request("GET", "/rest/v1/device_state", params={
-            "select": "capture_requested_at,patrol_on,patrol_interval_s,plant_tag",
+            "select": "capture_requested_at,patrol_on,patrol_interval_s,plant_tag,cam_exposure,cam_hmirror,cam_vflip",
             "device_id": f"eq.{device_id}", "limit": "1"}).json()
         if not rows:
             return DeviceState()
         r = rows[0]
         return DeviceState(capture_requested_at=_parse_ts(r["capture_requested_at"]), patrol_on=r["patrol_on"],
-                           patrol_interval_s=r["patrol_interval_s"], plant_tag=r["plant_tag"])
+                           patrol_interval_s=r["patrol_interval_s"], plant_tag=r["plant_tag"],
+                           cam_exposure=r["cam_exposure"], cam_hmirror=r["cam_hmirror"], cam_vflip=r["cam_vflip"])
 
     def clear_capture_request(self, device_id: str) -> None:
         self._request("PATCH", "/rest/v1/device_state", params={"device_id": f"eq.{device_id}"},
