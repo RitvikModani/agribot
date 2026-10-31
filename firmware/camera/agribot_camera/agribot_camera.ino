@@ -16,6 +16,7 @@
 #include <WiFiClientSecure.h>
 #include <WiFiManager.h>
 #include <esp_system.h>
+#include "driver/ledc.h"
 #include "esp_camera.h"
 #include "img_converters.h"
 #include "ca_cert.h"
@@ -49,6 +50,9 @@ constexpr int HTTP_TIMEOUT_MS = 20000;
 // 0-100, for sensors without a JPEG encoder. 60 keeps a 1280x720 photo near 27 KB (80 gave ~45 KB, which a
 // weak phone-hotspot uplink couldn't send); Gemini gains more from the resolution than from JPEG polish.
 constexpr int SOFT_JPEG_QUALITY = 60;
+// A capture takes frames until two in a row differ by at most this much mean brightness (0-255), up to the max.
+constexpr int SETTLED_LUMA_STEP = 6;
+constexpr int MAX_SETTLE_FRAMES = 6;
 
 Preferences prefs;
 WiFiClientSecure tls;
@@ -288,7 +292,38 @@ bool startCamera() {
     delay(100);
   }
   Serial.printf("[camera] ready %ux%u, sensor 0x%x, %s\n", width, height, s->id.PID, softJpeg ? "JPEG encoded in software" : "hardware JPEG");
+  // A (re)started sensor is back at its defaults; the next check-in re-applies the dashboard's settings.
+  appliedExposure = 0;
+  appliedMirror = false;
+  appliedFlip = false;
+  cameraRun(false);  // quiet until the first capture
   return true;
+}
+
+// esp32-camera's own pause/resume (cam_hal.c; exported, but not in its public header). Stop turns off the frame
+// interrupt and DMA on the ESP32; the sensor keeps running, so its auto-exposure stays settled.
+extern "C" void cam_stop(void);
+extern "C" void cam_start(void);
+
+// A running sensor wrecks this board's Wi-Fi. Measured back to back (38 KB upload): 4.3-16 s with the sensor
+// running, 1.0-1.5 s with only its 10 MHz clock paused, 0.95-1.4 s with the camera shut down. Pausing the
+// driver's DMA alone didn't help, and switching the GC2145's outputs off (0xf2) caused an interrupt storm. So
+// between captures the sensor clock is paused (it keeps its registers) and the driver takes no frames.
+constexpr ledc_timer_t CAM_LEDC_TIMER = LEDC_TIMER_0;  // esp32-camera drives it in low-speed mode (xclk.c)
+
+void sensorClock(bool on) {
+  if (on) ledc_timer_resume(LEDC_LOW_SPEED_MODE, CAM_LEDC_TIMER);
+  else ledc_timer_pause(LEDC_LOW_SPEED_MODE, CAM_LEDC_TIMER);
+}
+
+void cameraRun(bool on) {
+  if (on) {
+    sensorClock(true);
+    cam_start();
+  } else {
+    cam_stop();
+    sensorClock(false);
+  }
 }
 
 // The GC2145 driver has no exposure setter. Its auto-exposure aims at a brightness target on register page 1
@@ -299,14 +334,18 @@ void setGc2145Exposure(sensor_t* s, int level) {
   s->set_reg(s, 0x13, 0xff, target);
   s->set_reg(s, 0x23, 0xff, target - 0x20);
   s->set_reg(s, 0x15, 0xff, target + 0x10);
+  const int readBack = s->get_reg(s, 0x13, 0xff);
   s->set_reg(s, 0xfe, 0xff, 0x00);  // back to page 0, which the driver's own writes assume
+  Serial.printf("[camera] AEC target 0x%02x, sensor reads 0x%02x\n", target, readBack);
 }
 
 // Applies only what changed, so the 2 s check-in costs nothing when the settings are unchanged.
 void applyCameraSettings(int exposure, bool mirror, bool flip) {
   if (!cameraReady) return;
-  sensor_t* s = esp_camera_sensor_get();
   exposure = constrain(exposure, -2, 2);
+  if (exposure == appliedExposure && mirror == appliedMirror && flip == appliedFlip) return;
+  sensor_t* s = esp_camera_sensor_get();
+  sensorClock(true);  // the sensor's register interface runs off its clock
   if (exposure != appliedExposure) {
     if (s->id.PID == GC2145_PID) setGc2145Exposure(s, exposure);
     else if (s->set_ae_level) s->set_ae_level(s, exposure);  // OV2640 and friends
@@ -323,6 +362,7 @@ void applyCameraSettings(int exposure, bool mirror, bool flip) {
     appliedFlip = flip;
     Serial.printf("[camera] flip %s\n", flip ? "on" : "off");
   }
+  sensorClock(false);
 }
 
 // Mean brightness 0-255 of an RGB565 frame from every 8th pixel of every 8th row: the number to tune exposure by.
@@ -374,9 +414,20 @@ void captureAndUpload(const char* trigger) {
     return;
   }
   const uint32_t started = millis();
-  camera_fb_t* stale = esp_camera_fb_get();  // drop the buffered frame; we want "now"
-  if (stale) esp_camera_fb_return(stale);
-  camera_fb_t* fb = esp_camera_fb_get();
+  cameraRun(true);
+  // The first frame after resuming can be cut short, and auto-exposure only adapts while the sensor runs, so a
+  // new spot (or the first shot after boot) needs a few frames: take them until the brightness holds steady.
+  camera_fb_t* fb = nullptr;
+  int frames = 0, luma = -1;
+  for (int previous = -1000; frames < MAX_SETTLE_FRAMES; previous = luma) {
+    if (fb) esp_camera_fb_return(fb);
+    fb = esp_camera_fb_get();
+    ++frames;
+    if (!fb) break;
+    luma = softJpeg ? meanLuma(fb) : -1;
+    if (frames >= 2 && (softJpeg ? abs(luma - previous) <= SETTLED_LUMA_STEP : frames >= 3)) break;
+  }
+  cameraRun(false);  // quiet radio for the encode and upload
   if (!fb) {
     Serial.println("[capture] no frame");
     blink(3);
@@ -387,7 +438,6 @@ void captureAndUpload(const char* trigger) {
   const uint8_t* jpeg = fb->buf;
   size_t jpegLen = fb->len;
   uint8_t* encoded = nullptr;  // owned here when the sensor needed software encoding
-  const int luma = softJpeg ? meanLuma(fb) : -1;
   if (softJpeg) {
     const bool ok = frame2jpg(fb, SOFT_JPEG_QUALITY, &encoded, &jpegLen);
     esp_camera_fb_return(fb);  // the raw frame is no longer needed
@@ -400,8 +450,8 @@ void captureAndUpload(const char* trigger) {
     jpeg = encoded;
   }
   const String id = uuid4();
-  Serial.printf("[capture] %s %u bytes (%s), frame %u ms, encode %u ms, luma %d, exposure %+d\n", id.c_str(), jpegLen,
-                trigger, grabMs, (uint32_t)(millis() - lastCaptureMs), luma, appliedExposure);
+  Serial.printf("[capture] %s %u bytes (%s), %d frames in %u ms, encode %u ms, luma %d, exposure %+d\n", id.c_str(),
+                jpegLen, trigger, frames, grabMs, (uint32_t)(millis() - lastCaptureMs), luma, appliedExposure);
   int code = -1;
   for (int attempt = 0; attempt < UPLOAD_ATTEMPTS; ++attempt) {
     code = postJpeg(jpeg, jpegLen, id, trigger);
