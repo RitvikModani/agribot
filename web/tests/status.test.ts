@@ -6,9 +6,10 @@ const NOW = Date.parse('2026-11-01T09:00:00Z')
 const ago = (s: number) => new Date(NOW - s * 1000).toISOString()
 
 describe('isOnline', () => {
-  it('is online when seen within 10 s', () => {
-    expect(isOnline(ago(9), NOW)).toBe(true)
-    expect(isOnline(ago(10), NOW)).toBe(false)
+  // 30 s: check-ins are recorded every 5 s at best and stop while a photo uploads (10-20 s on a hotspot).
+  it('is online when seen within 30 s', () => {
+    expect(isOnline(ago(29), NOW)).toBe(true)
+    expect(isOnline(ago(30), NOW)).toBe(false)
     expect(isOnline(null, NOW)).toBe(false)
   })
 })

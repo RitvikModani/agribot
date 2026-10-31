@@ -52,6 +52,7 @@ export function useRover(source: DataSource): RoverModel {
       onCapture: (c) => setCaptures((prev) => (prev.some((p) => p.id === c.id) ? prev.map((p) => (p.id === c.id ? c : p)) : [c, ...prev])),
       onDevice: (d) => setRover((r) => (r && r.device.id === d.id ? { ...r, device: d } : r)),
       onState: (s) => setRover((r) => (r && r.state.deviceId === s.deviceId ? { ...r, state: s } : r)),
+      onResync: () => void reload(),
     })
   }, [reload, source])
 

@@ -66,6 +66,8 @@ export interface Subscription {
   onCapture(c: Capture): void
   onDevice(d: Device): void
   onState(s: DeviceState): void
+  /** The live connection came back after a gap (or the tab woke up): refetch what may have been missed. */
+  onResync?(): void
 }
 
 /** Everything the UI needs. Implemented by Supabase (live) and Replay (offline/demo fallback). */

@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type RealtimeChannel } from '@supabase/supabase-js'
 import type { Capture, DataSource, Device, DeviceState, ShopResult } from './types'
 import { controlRow } from './controls'
 import { placeForPrompt, type GuideResult } from '../lib/guide'
@@ -183,17 +183,58 @@ export function createSupabaseSource(url: string, anonKey: string, apiUrl: strin
       return (await callApi('/v1/guide', { plant, place: placeForPrompt(region), lat: region.lat, lon: region.lon })) as GuideResult
     },
 
-    subscribe({ onCapture, onDevice, onState }) {
-      const channel = sb
-        .channel('agribot-live')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'captures' }, (p) => onCapture(toCapture(p.new)))
-        // The whole-plant diagnosis lands a few seconds later as an UPDATE of the same row.
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'captures' }, (p) => onCapture(toCapture(p.new)))
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'devices' }, (p) => onDevice(toDevice(p.new)))
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'device_state' }, (p) => onState(toState(p.new)))
-        .subscribe()
+    subscribe({ onCapture, onDevice, onState, onResync }) {
+      // A phone locking its screen, switching apps or changing network kills the socket; a channel that errors
+      // stays dead (sb.channel() hands back the same broken channel), and events during the gap are never replayed.
+      // So: rebuild the channel on error, and refetch whenever it rejoins or the tab comes back.
+      let channel: RealtimeChannel | null = null
+      let joined = false
+      let stopped = false
+      let retry: ReturnType<typeof setTimeout> | undefined
+
+      const open = () => {
+        const ch = sb
+          .channel('agribot-live')
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'captures' }, (p) => onCapture(toCapture(p.new)))
+          // The whole-plant diagnosis lands a few seconds later as an UPDATE of the same row.
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'captures' }, (p) => onCapture(toCapture(p.new)))
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'devices' }, (p) => onDevice(toDevice(p.new)))
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'device_state' }, (p) => onState(toState(p.new)))
+        channel = ch
+        ch.subscribe((status) => {
+          if (stopped || ch !== channel) return // a channel we already replaced
+          if (status === 'SUBSCRIBED') {
+            if (joined) onResync?.()
+            joined = true
+          } else {
+            reopen(3000) // CHANNEL_ERROR, TIMED_OUT or CLOSED
+          }
+        })
+      }
+      const reopen = (delayMs: number) => {
+        clearTimeout(retry)
+        retry = setTimeout(async () => {
+          const old = channel
+          channel = null
+          if (old) await sb.removeChannel(old)
+          if (!stopped) open()
+        }, delayMs)
+      }
+      const wake = () => {
+        if (document.visibilityState !== 'visible') return
+        onResync?.()
+        if (channel?.state !== 'joined') reopen(0)
+      }
+
+      open()
+      document.addEventListener('visibilitychange', wake)
+      window.addEventListener('online', wake)
       return () => {
-        void sb.removeChannel(channel)
+        stopped = true
+        clearTimeout(retry)
+        document.removeEventListener('visibilitychange', wake)
+        window.removeEventListener('online', wake)
+        if (channel) void sb.removeChannel(channel)
       }
     },
   }

@@ -1,6 +1,7 @@
 import { LABEL_NAME, type LabelKey } from './labels'
 
-export const ONLINE_WINDOW_MS = 10_000
+// Check-ins are recorded every 5 s at best and pause while a photo uploads, so 10 s flapped to "offline".
+export const ONLINE_WINDOW_MS = 30_000
 export const REQUEST_STALL_MS = 15_000
 export const LOW_CONFIDENCE = 0.6
 

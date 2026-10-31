@@ -76,7 +76,8 @@ Secrets (Supabase service key, Gemini key) live **only** in Render → agribot-a
 
 | Problem | Do this |
 |---|---|
-| Rover **offline** | Hotspot on, 2.4 GHz, data on? Camera powered? It reconnects by itself and reboots after 60 s without Wi-Fi. |
+| Rover **offline** | "Offline" means no check-in for 30 s. Hotspot on, 2.4 GHz, data on? Camera powered? It reconnects by itself and reboots after 60 s without Wi-Fi. |
+| **Live** shows an old photo | Live shows the newest capture, not video. The page re-fetches when you come back to it (phone unlocked, tab reopened); if it still looks stuck, refresh. |
 | Capture says **"Not received"** | Press again. Still failing: Wake API, then check mobile signal; switch to the second hotspot. |
 | **"Whole-plant check unavailable"** | Gemini was slow or rate-limited. The quick verdict still stands; capture again in a minute. |
 | Camera LED **2 slow blinks** | Token rejected → new token → portal (above). |
