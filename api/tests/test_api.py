@@ -136,6 +136,19 @@ def test_state_camera_defaults(client):
     assert (body["cam_exposure"], body["cam_hmirror"], body["cam_vflip"]) == (0, False, False)
 
 
+def test_state_records_the_cameras_hotspot_address(client, store):
+    client.get("/v1/device/state", headers={"X-Device-Token": TOKEN, "X-Local-IP": "10.173.118.217"})
+    assert store.local_ips == {store.device_id(TOKEN): "10.173.118.217"}
+
+
+def test_state_ignores_addresses_that_are_not_private(client, store, clock):
+    for bad in ["8.8.8.8", "127.0.0.1", "not-an-ip", "10.0.0.1:80", ""]:
+        client.get("/v1/device/state", headers={"X-Device-Token": TOKEN, "X-Local-IP": bad})
+        clock.advance(6)  # past the 5 s presence throttle, so every request writes
+    assert store.touches == 5
+    assert store.local_ips == {}
+
+
 def test_state_requires_token(client):
     assert client.get("/v1/device/state").status_code == 401
 

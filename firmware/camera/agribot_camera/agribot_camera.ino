@@ -18,6 +18,7 @@
 #include <esp_system.h>
 #include "driver/ledc.h"
 #include "esp_camera.h"
+#include "esp_http_server.h"
 #include "img_converters.h"
 #include "ca_cert.h"
 
@@ -79,6 +80,10 @@ bool appliedFlip = false;
 void led(bool on) { digitalWrite(STATUS_LED, on ? LOW : HIGH); }
 
 bool logPolls = false;  // 'v' on serial logs every check-in's time, not only the slow ones
+// One user of the camera at a time: a capture (which keeps the sensor quiet through its upload), the live video,
+// or a settings change.
+SemaphoreHandle_t cameraLock;
+volatile int liveViewers = 0;
 
 void blink(int times, int onMs = 120, int offMs = 160) {
   for (int i = 0; i < times; ++i) {
@@ -344,6 +349,7 @@ void applyCameraSettings(int exposure, bool mirror, bool flip) {
   if (!cameraReady) return;
   exposure = constrain(exposure, -2, 2);
   if (exposure == appliedExposure && mirror == appliedMirror && flip == appliedFlip) return;
+  xSemaphoreTake(cameraLock, portMAX_DELAY);
   sensor_t* s = esp_camera_sensor_get();
   sensorClock(true);  // the sensor's register interface runs off its clock
   if (exposure != appliedExposure) {
@@ -362,7 +368,8 @@ void applyCameraSettings(int exposure, bool mirror, bool flip) {
     appliedFlip = flip;
     Serial.printf("[camera] flip %s\n", flip ? "on" : "off");
   }
-  sensorClock(false);
+  if (liveViewers == 0) sensorClock(false);
+  xSemaphoreGive(cameraLock);
 }
 
 // Mean brightness 0-255 of an RGB565 frame from every 8th pixel of every 8th row: the number to tune exposure by.
@@ -407,7 +414,7 @@ int postJpeg(const uint8_t* buf, size_t len, const String& captureId, const char
   return code;
 }
 
-void captureAndUpload(const char* trigger) {
+void captureAndUploadNow(const char* trigger) {
   if (!cameraReady) {
     Serial.println("[capture] camera not ready (see the [camera] line at boot)");
     blink(3);
@@ -470,8 +477,15 @@ void captureAndUpload(const char* trigger) {
   else blink(3);
 }
 
+void captureAndUpload(const char* trigger) {
+  xSemaphoreTake(cameraLock, portMAX_DELAY);  // the live video waits: a running sensor would slow this upload
+  captureAndUploadNow(trigger);
+  xSemaphoreGive(cameraLock);
+}
+
 void pollState() {
   if (!beginRequest(http, "/v1/device/state")) return;
+  http.addHeader("X-Local-IP", WiFi.localIP().toString());  // lets the dashboard link the live video
   const bool reused = tls.connected();
   const uint32_t started = millis();
   int code = http.GET();
@@ -559,6 +573,122 @@ void handleSerial() {
 
 // ───────────────────────────── main ─────────────────────────────
 
+// ───────────────────────────── live video ─────────────────────────────
+// For devices on the same hotspot: port 80 serves a page, port 81 the stream (multipart JPEG). Each frame is the
+// 1280x720 capture frame sampled down 4x to 320x180, so it runs at the sensor's HD frame rate (about 2 a second).
+// A capture takes the camera over and the video freezes until its upload is done; when the last viewer leaves,
+// the sensor pauses again (a running sensor slows uploads).
+constexpr int LIVE_SCALE = 4;
+constexpr int LIVE_JPEG_QUALITY = 50;
+uint8_t* liveFrame = nullptr;  // the scaled-down RGB565 frame, in PSRAM
+
+const char LIVE_PAGE[] = R"html(<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>AgriBot live</title></head>
+<body style="margin:0;background:#1d1a14;color:#f4ede1;font:15px system-ui,sans-serif;text-align:center">
+<img id="v" alt="AgriBot live video" style="display:block;width:100%;max-width:960px;margin:0 auto;background:#000">
+<p style="padding:0 16px">AgriBot live &middot; about 2 frames a second &middot; freezes for a few seconds while a photo is taken</p>
+<script>document.getElementById('v').src = 'http://' + location.hostname + ':81/stream';</script>
+</body></html>)html";
+
+esp_err_t livePage(httpd_req_t* req) {
+  httpd_resp_set_type(req, "text/html");
+  return httpd_resp_send(req, LIVE_PAGE, HTTPD_RESP_USE_STRLEN);
+}
+
+// Every LIVE_SCALE-th pixel of a big-endian RGB565 frame, into liveFrame.
+void scaleDown(const camera_fb_t* fb, int outW, int outH) {
+  for (int y = 0; y < outH; ++y) {
+    const uint8_t* row = fb->buf + 2 * (size_t)y * LIVE_SCALE * fb->width;
+    uint8_t* out = liveFrame + 2 * (size_t)y * outW;
+    for (int x = 0; x < outW; ++x) {
+      out[2 * x] = row[2 * x * LIVE_SCALE];
+      out[2 * x + 1] = row[2 * x * LIVE_SCALE + 1];
+    }
+  }
+}
+
+esp_err_t sendPart(httpd_req_t* req, const uint8_t* jpg, size_t len) {
+  char head[96];
+  const int n = snprintf(head, sizeof head, "\r\n--frame\r\nContent-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n",
+                         (unsigned)len);
+  esp_err_t res = httpd_resp_send_chunk(req, head, n);
+  if (res == ESP_OK) res = httpd_resp_send_chunk(req, (const char*)jpg, len);
+  return res;
+}
+
+esp_err_t liveStream(httpd_req_t* req) {
+  if (!cameraReady) return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "camera not ready");
+  httpd_resp_set_type(req, "multipart/x-mixed-replace;boundary=frame");
+  ++liveViewers;
+  Serial.println("[live] viewer connected");
+  const uint32_t started = millis();
+  uint32_t frames = 0;
+  esp_err_t res = ESP_OK;
+  while (res == ESP_OK) {
+    if (xSemaphoreTake(cameraLock, pdMS_TO_TICKS(1000)) != pdTRUE) continue;  // a capture has the camera
+    cameraRun(true);
+    camera_fb_t* fb = esp_camera_fb_get();
+    if (!fb) {
+      xSemaphoreGive(cameraLock);
+      delay(100);
+      continue;
+    }
+    if (softJpeg) {
+      const int w = fb->width / LIVE_SCALE, h = fb->height / LIVE_SCALE;
+      if (!liveFrame) liveFrame = (uint8_t*)ps_malloc((size_t)w * h * 2);  // sized for the largest frame (startup)
+      if (liveFrame) scaleDown(fb, w, h);
+      esp_camera_fb_return(fb);
+      xSemaphoreGive(cameraLock);  // encode and send without holding up a capture
+      uint8_t* jpg = nullptr;
+      size_t len = 0;
+      if (liveFrame && fmt2jpg(liveFrame, (size_t)w * h * 2, w, h, PIXFORMAT_RGB565, LIVE_JPEG_QUALITY, &jpg, &len)) {
+        res = sendPart(req, jpg, len);
+        if (res == ESP_OK) ++frames;
+      }
+      free(jpg);
+    } else {  // the sensor makes its own JPEGs: send them as they are
+      res = sendPart(req, fb->buf, fb->len);
+      if (res == ESP_OK) ++frames;
+      esp_camera_fb_return(fb);
+      xSemaphoreGive(cameraLock);
+    }
+  }
+  xSemaphoreTake(cameraLock, portMAX_DELAY);
+  if (--liveViewers == 0) cameraRun(false);
+  xSemaphoreGive(cameraLock);
+  const float secs = (millis() - started) / 1000.0f;
+  Serial.printf("[live] viewer left: %u frames in %.0f s (%.1f a second)\n", frames, secs, secs > 0 ? frames / secs : 0);
+  return res;
+}
+
+void startLiveServers() {
+  httpd_config_t pageConfig = HTTPD_DEFAULT_CONFIG();
+  pageConfig.server_port = 80;
+  pageConfig.ctrl_port = 32768;
+  pageConfig.max_open_sockets = 2;
+  pageConfig.lru_purge_enable = true;
+  httpd_uri_t page = {};
+  page.uri = "/";
+  page.method = HTTP_GET;
+  page.handler = livePage;
+  httpd_handle_t pageServer = nullptr;
+  if (httpd_start(&pageServer, &pageConfig) == ESP_OK) httpd_register_uri_handler(pageServer, &page);
+
+  httpd_config_t streamConfig = HTTPD_DEFAULT_CONFIG();
+  streamConfig.server_port = 81;
+  streamConfig.ctrl_port = 32769;
+  streamConfig.max_open_sockets = 2;  // one viewer at a time; a second waits until the first leaves
+  streamConfig.lru_purge_enable = true;
+  streamConfig.stack_size = 8192;  // the JPEG encoder
+  httpd_uri_t stream = {};
+  stream.uri = "/stream";
+  stream.method = HTTP_GET;
+  stream.handler = liveStream;
+  httpd_handle_t streamServer = nullptr;
+  if (httpd_start(&streamServer, &streamConfig) == ESP_OK) httpd_register_uri_handler(streamServer, &stream);
+  Serial.printf("[live] video at http://%s/ for devices on this hotspot\n", WiFi.localIP().toString().c_str());
+}
+
 void setup() {
   Serial.begin(115200);
   pinMode(STATUS_LED, OUTPUT);
@@ -569,6 +699,7 @@ void setup() {
   loadConfig();
   if (doubleReset || apiBase.isEmpty() || deviceToken.isEmpty()) runPortal();  // restarts
 
+  cameraLock = xSemaphoreCreateMutex();
   cameraReady = startCamera();
   closeResetWindowIfDue();
   tls.setCACert(API_ROOT_CAS);
@@ -588,6 +719,7 @@ void setup() {
   }
   Serial.printf("[wifi] %s %s\n", WiFi.status() == WL_CONNECTED ? "connected" : "not yet connected",
                 WiFi.localIP().toString().c_str());
+  startLiveServers();
 }
 
 void loop() {

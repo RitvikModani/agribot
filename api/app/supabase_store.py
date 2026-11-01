@@ -70,9 +70,12 @@ class SupabaseStore:
         self._request("PATCH", "/rest/v1/device_state", params={"device_id": f"eq.{device_id}"},
                       json={"capture_requested_at": None}, headers={"Prefer": "return=minimal"})
 
-    def touch_last_seen(self, device_id: str, at: datetime) -> None:
+    def touch_last_seen(self, device_id: str, at: datetime, local_ip: str | None = None) -> None:
+        row = {"last_seen_at": at.isoformat()}
+        if local_ip:  # an older camera sends none: keep the last known address
+            row["local_ip"] = local_ip
         self._request("PATCH", "/rest/v1/devices", params={"id": f"eq.{device_id}"},
-                      json={"last_seen_at": at.isoformat()}, headers={"Prefer": "return=minimal"})
+                      json=row, headers={"Prefer": "return=minimal"})
 
     def set_diagnosis(self, capture_id: str, status: str, ai: dict, model: str) -> None:
         self._request("PATCH", "/rest/v1/captures", params={"id": f"eq.{capture_id}"},

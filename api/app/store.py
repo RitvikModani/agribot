@@ -54,7 +54,7 @@ class Store(Protocol):
     def insert_capture(self, row: CaptureRow) -> None: ...
     def get_state(self, device_id: str) -> DeviceState: ...
     def clear_capture_request(self, device_id: str) -> None: ...
-    def touch_last_seen(self, device_id: str, at: datetime) -> None: ...
+    def touch_last_seen(self, device_id: str, at: datetime, local_ip: str | None = None) -> None: ...
     def set_diagnosis(self, capture_id: str, status: str, ai: dict, model: str) -> None: ...
     def get_place(self, owner: str) -> str | None: ...
 
@@ -69,6 +69,7 @@ class MemoryStore:
     images: dict[str, bytes] = field(default_factory=dict)
     diagnoses: dict[str, tuple[str, dict, str]] = field(default_factory=dict)  # capture_id -> (status, ai, model)
     places: dict[str, str] = field(default_factory=dict)  # owner -> "Place, State, Country"
+    local_ips: dict[str, str] = field(default_factory=dict)  # device_id -> address on the hotspot
     insert_count: int = 0
     touches: int = 0
     fail: bool = False
@@ -119,8 +120,10 @@ class MemoryStore:
         self._check()
         self.states[device_id].capture_requested_at = None
 
-    def touch_last_seen(self, device_id: str, at: datetime) -> None:
+    def touch_last_seen(self, device_id: str, at: datetime, local_ip: str | None = None) -> None:
         self.touches += 1
+        if local_ip:
+            self.local_ips[device_id] = local_ip
 
     def set_diagnosis(self, capture_id: str, status: str, ai: dict, model: str) -> None:
         self._check()

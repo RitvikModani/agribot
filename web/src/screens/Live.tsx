@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Cpu, Leaf, Minus, Plus, RotateCcw, ScanLine, Sprout, Stethoscope, Tag, Timer } from 'lucide-react'
+import { Cpu, Leaf, Minus, Plus, RotateCcw, ScanLine, Sprout, Stethoscope, Tag, Timer, Video } from 'lucide-react'
 import type { Capture, DataSource } from '../data/types'
 import { useNow, type RoverModel } from '../hooks/useRover'
 import type { RegionModel } from '../hooks/useRegion'
@@ -12,6 +12,7 @@ import { diagnosisOf, headline, isTomato } from '../lib/diagnosis'
 import type { Region } from '../lib/weather'
 import { REMEDY, REMEDY_FOOTER } from '../lib/labels'
 import { captureSteps } from '../lib/steps'
+import { liveVideoUrl } from '../lib/camera'
 import { captureRequestStatus, isOnline, relativeTime, verdictView, type RequestStatus } from '../lib/status'
 import {
   ConfidenceBlocks,
@@ -107,6 +108,7 @@ export function Live({
               Rover last seen {relativeTime(rover.device.lastSeenAt, now)}. Check the hotspot and the camera's power.
             </p>
           )}
+          {online && <LiveVideoLink url={liveVideoUrl(rover.device.localIp)} />}
         </div>
   
         <div className="space-y-5">
@@ -123,6 +125,23 @@ export function Live({
         </div>
       </div>
     </div>
+  )
+}
+
+/** The camera serves its own video page on the hotspot; a plain link (not an embed: browsers block http video inside an https page). */
+function LiveVideoLink({ url }: { url: string | null }) {
+  if (!url) return null
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex min-h-12 items-center justify-center gap-2 rounded-full bg-inset px-4 font-semibold text-soil ring-1 ring-line hover:text-moss"
+    >
+      <Video className="size-5" aria-hidden="true" />
+      Live video
+      <span className="text-[13px] font-normal text-bark">· on your hotspot only</span>
+    </a>
   )
 }
 

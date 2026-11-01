@@ -5,6 +5,7 @@ Run locally (no Supabase):  set AGRIBOT_STORE=memory and AGRIBOT_DEV_TOKEN=agb_<
 """
 from __future__ import annotations
 
+import ipaddress
 import logging
 import os
 import time
@@ -53,6 +54,18 @@ log = logging.getLogger("agribot")
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+_HOTSPOT_NETS = tuple(ipaddress.ip_network(n) for n in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
+
+
+def hotspot_address(value: str | None) -> str | None:
+    """The camera's address on the phone hotspot, if it's a plain private IPv4 (anything else is dropped)."""
+    try:
+        ip = ipaddress.IPv4Address((value or "").strip())
+    except ValueError:
+        return None
+    return str(ip) if any(ip in net for net in _HOTSPOT_NETS) else None
 
 
 def iso(ts: datetime | None) -> str | None:
@@ -112,14 +125,15 @@ def create_app(store: Store, classifier: Classifier, settings: Settings,
     def healthz() -> dict:
         return {"ok": True, "model_version": settings.model_version}
 
-    def touch(device_id: str, now: datetime) -> None:
+    def touch(device_id: str, now: datetime, local_ip: str | None) -> None:
         try:
-            store.touch_last_seen(device_id, now)
+            store.touch_last_seen(device_id, now, local_ip)
         except StoreError as exc:  # presence is best-effort; never fail the poll for it
             log.warning("last_seen write failed: %s", exc)
 
     @app.get("/v1/device/state")
-    def device_state(background: BackgroundTasks, device: Device = Depends(require_device)) -> dict:
+    def device_state(background: BackgroundTasks, device: Device = Depends(require_device),
+                     x_local_ip: str | None = Header(default=None)) -> dict:
         now = clock()
         try:
             state = store.get_state(device.id)
@@ -129,7 +143,8 @@ def create_app(store: Store, classifier: Classifier, settings: Settings,
         previous = last_touch.get(device.id)
         if previous is None or (now - previous).total_seconds() >= 5:
             last_touch[device.id] = now
-            background.add_task(touch, device.id, now)  # after the reply: the poll doesn't wait for it
+            # After the reply: the poll doesn't wait for it. The hotspot address lets the dashboard link the live video.
+            background.add_task(touch, device.id, now, hotspot_address(x_local_ip))
         return {"capture_requested_at": iso(state.capture_requested_at), "patrol_on": state.patrol_on,
                 "patrol_interval_s": state.patrol_interval_s, "cam_exposure": state.cam_exposure,
                 "cam_hmirror": state.cam_hmirror, "cam_vflip": state.cam_vflip, "server_time": iso(now)}

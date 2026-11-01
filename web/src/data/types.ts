@@ -31,6 +31,7 @@ export interface Device {
   createdAt: string
   lastSeenAt: string | null
   revokedAt: string | null
+  localIp: string | null // the camera's address on the hotspot, for its live video
 }
 
 export interface DeviceState {

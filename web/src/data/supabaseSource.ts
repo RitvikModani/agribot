@@ -11,6 +11,7 @@ const toDevice = (r: Row): Device => ({
   createdAt: r.created_at as string,
   lastSeenAt: (r.last_seen_at as string | null) ?? null,
   revokedAt: (r.revoked_at as string | null) ?? null,
+  localIp: (r.local_ip as string | null | undefined) ?? null,
 })
 
 const toState = (r: Row): DeviceState => ({
