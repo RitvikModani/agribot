@@ -38,7 +38,7 @@ Secrets (Supabase service key, Gemini key) live **only** in Render → agribot-a
 | **Your region** | Dashboard → Rover → Your region → Change. Weather, disease pressure and the whole-plant check use it. |
 | **Photos too bright / dark, mirrored, upside down** | Dashboard → Rover → **Camera**: Exposure −2 (darker) to +2 (brighter), Mirror, Flip. The camera picks it up within a few seconds; capture again to check. Washed out in sunlight: −1 or −2. (+2 barely brightens indoors: the camera is already at its limit there.) |
 | **Gemini model / daily limit** | Render → agribot-api → Environment: `GEMINI_MODEL` (now `gemini-3.5-flash-lite`), `AI_DAILY_LIMIT` (default 200) → Save, rebuild and deploy. |
-| **Code changes** | Push to `main`. Changes in `api/` deploy to Render by themselves (~1–2 min); changes in `web/` rebuild the dashboard (~1 min, GitHub Actions). |
+| **Code changes** | Push to `main`. Changes in `api/` deploy to Render by themselves (~1–2 min); changes in `web/` rebuild the dashboard (~1 min, GitHub Actions). A device picks up a new dashboard on its next page load; check Rover → Signed in, which shows the build ("Build 10 · 6ae518e"). |
 | **Flash the camera** | Arduino IDE → open `firmware/camera/agribot_camera/agribot_camera.ino` → Board **AI Thinker ESP32-CAM** → the **USB-SERIAL CH340** port (unplug other CH340 boards first) → Upload. Serial Monitor 115200: `p` prints config, `c` captures (the log shows size, timings and `luma`, the photo's brightness 0–255), `v` logs every check-in's time. |
 
 ## Free-tier things that bite
