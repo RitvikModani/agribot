@@ -20,6 +20,7 @@ import { API_URL } from '../data'
 import type { DataSource, Session } from '../data/types'
 import { useNow, type RoverModel } from '../hooks/useRover'
 import type { RegionModel } from '../hooks/useRegion'
+import { buildLabel } from '../lib/build'
 import { EXPOSURE_MAX, EXPOSURE_MIN, exposureLabel, exposureValue, stepExposure } from '../lib/camera'
 import { isOnline, relativeTime } from '../lib/status'
 import { Label, Panel, StatusChip } from '../components/ui'
@@ -111,6 +112,7 @@ export function RoverScreen({ model, source, session, region }: { model: RoverMo
         <div>
           <Label>Signed in</Label>
           <p className="mt-1 font-mono text-sm">{session.email}</p>
+          <p className="mt-0.5 font-mono text-[12px] text-bark">{buildLabel(import.meta.env.VITE_BUILD)}</p>
         </div>
         {source.kind === 'supabase' && (
           <button type="button" onClick={() => void source.signOut()} className="flex h-11 cursor-pointer items-center gap-2 rounded-full bg-inset px-4 font-semibold text-bark ring-1 ring-line hover:text-soil">

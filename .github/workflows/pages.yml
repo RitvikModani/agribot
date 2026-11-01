@@ -37,6 +37,8 @@ jobs:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
           VITE_API_URL: ${{ vars.VITE_API_URL }}
+          # Shown on the Rover screen, so you can tell which version a device is running.
+          VITE_BUILD: ${{ github.run_number }}-${{ github.sha }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: web/dist

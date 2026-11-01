@@ -27,9 +27,19 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,woff2}'],
-        // Replay data is the offline fallback: cache it so it survives dead venue Wi-Fi.
+        // Pages come from the network first, so a new deploy shows on the first visit. Served from the precache
+        // (workbox's default for apps like this), it only showed once the new service worker had finished
+        // downloading in the background: 2-3 reloads on a hotspot. The cached page is the fallback offline or
+        // after 3 s. index.html stays out of the precache, which would otherwise answer /agribot/ itself.
+        globPatterns: ['**/*.{js,css,svg,woff2}'],
+        navigateFallback: null,
         runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: { cacheName: 'agribot-pages', networkTimeoutSeconds: 3 },
+          },
+          // Replay data is the offline fallback: cache it so it survives dead venue Wi-Fi.
           {
             urlPattern: /\/replay\//,
             handler: 'CacheFirst',
