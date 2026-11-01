@@ -25,6 +25,7 @@ Secrets (Supabase service key, Gemini key) live **only** in Render → agribot-a
 
 1. Phone hotspot **on**: name `Ritvik`, **2.4 GHz** (iPhone: Maximize Compatibility on), **mobile data on**.
 2. Power the camera from its power bank. Red LED flickers while it joins Wi-Fi, then goes off.
+   Car: **battery switch ON**. On USB the Uno looks alive (LEDs, Bluetooth, self-test) while the motors get nothing, so a dead car is first the switch, then a flat battery.
 3. Open the dashboard → it shows **Online** within ~10 s.
 4. Point the camera at a whole plant, **60–100 cm away, in daylight**. Stop the car before capturing.
 5. **Capture leaf** (or turn on Patrol). In ~5 s the photo and a quick verdict appear; a few seconds later the **whole-plant check** replaces it: crop, problems, numbered boxes on the sick leaves, advice and a "find it near you" link.
@@ -39,6 +40,7 @@ Secrets (Supabase service key, Gemini key) live **only** in Render → agribot-a
 | **Photos too bright / dark, mirrored, upside down** | Dashboard → Rover → **Camera**: Exposure −2 (darker) to +2 (brighter), Mirror, Flip. The camera picks it up within a few seconds; capture again to check. Washed out in sunlight: −1 or −2. (+2 barely brightens indoors: the camera is already at its limit there.) |
 | **Gemini model / daily limit** | Render → agribot-api → Environment: `GEMINI_MODEL` (now `gemini-3.5-flash-lite`), `AI_DAILY_LIMIT` (default 200) → Save, rebuild and deploy. |
 | **Code changes** | Push to `main`. Changes in `api/` deploy to Render by themselves (~1–2 min); changes in `web/` rebuild the dashboard (~1 min, GitHub Actions). A device picks up a new dashboard on its next page load; check Rover → Signed in, which shows the build ("Build 10 · 6ae518e"). |
+| **Car code** | Sketch `agribot_bt_car` in your Arduino sketchbook (OneDrive\Documents\Arduino). Board **Arduino Uno**, its own port → Upload. Phone app buttons send `1` forward, `2` back, `3` right, `4` left, `0` stop on release. Serial Monitor 9600: `t` spins each wheel (left fwd, left back, right fwd, right back). A wheel the wrong way: swap its two numbers in `RIGHT_FWD/RIGHT_REV` or `LEFT_FWD/LEFT_REV`. |
 | **Flash the camera** | Arduino IDE → open `firmware/camera/agribot_camera/agribot_camera.ino` → Board **AI Thinker ESP32-CAM** → the **USB-SERIAL CH340** port (unplug other CH340 boards first) → Upload. Serial Monitor 115200: `p` prints config, `c` captures (the log shows size, timings and `luma`, the photo's brightness 0–255), `v` logs every check-in's time. |
 
 ## Free-tier things that bite
